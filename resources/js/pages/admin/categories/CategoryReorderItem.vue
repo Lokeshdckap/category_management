@@ -7,24 +7,14 @@
 
       <q-item-section>
         <q-item-label>
-          <span class="text-grey-7" v-if="level > 0">
-            {{ '└─ ' }}
-          </span>
+          <span class="text-grey-7" v-if="level > 0">└─ </span>
           <strong>{{ displayIndex }}.</strong> {{ element.name }}
 
-          <q-badge
-            v-if="element.featured"
-            color="positive"
-            class="q-ml-sm"
-          >
+          <q-badge v-if="element.featured" color="positive" class="q-ml-sm">
             Featured
           </q-badge>
 
-          <q-badge
-            v-if="localChildren.length > 0"
-            color="blue-grey-5"
-            class="q-ml-sm"
-          >
+          <q-badge v-if="localChildren.length > 0" color="blue-grey-5" class="q-ml-sm">
             {{ localChildren.length }} sub
           </q-badge>
         </q-item-label>
@@ -37,10 +27,7 @@
       <q-item-section side>
         <div class="text-caption text-grey-7">
           {{ viewMode === 'featured' ? 'Featured Order' : 'Sort Order' }}:
-          {{ viewMode === 'featured'
-            ? element.featured_order
-            : element.sort_order
-          }}
+          {{ viewMode === 'featured' ? element.featured_order : element.sort_order }}
         </div>
       </q-item-section>
     </q-item>
@@ -52,8 +39,9 @@
       item-key="uuid"
       handle=".drag-handle"
       :group="{ name: 'categories' }"
-      class="children-list"
       @end="emitChildrenUpdate"
+      class="children-list"
+      tag="div"
     >
       <template #item="{ element: child, index: childIndex }">
         <CategoryReorderItem
@@ -102,27 +90,23 @@ export default {
     }
   },
 
-  data () {
+  data() {
     return {
-      // LOCAL COPY — never mutate props
-      localChildren: this.element.children
-        ? [...this.element.children]
-        : []
+      localChildren: this.element.children ? [...this.element.children] : []
     }
   },
 
   watch: {
-    // Keep local state in sync if parent updates
     'element.children': {
       deep: true,
-      handler (val) {
+      handler(val) {
         this.localChildren = val ? [...val] : []
       }
     }
   },
 
   computed: {
-    displayIndex () {
+    displayIndex() {
       if (this.parentIndex) {
         return `${this.parentIndex}.${this.index + 1}`
       }
@@ -131,15 +115,14 @@ export default {
   },
 
   methods: {
-    emitChildrenUpdate () {
+    emitChildrenUpdate() {
       this.$emit('update-children', {
         uuid: this.element.uuid,
         children: this.localChildren
       })
     },
 
-    // Bubble events up the recursion chain
-    forwardChildrenUpdate (payload) {
+    forwardChildrenUpdate(payload) {
       this.$emit('update-children', payload)
     }
   }
@@ -172,7 +155,6 @@ export default {
   min-height: 10px;
 }
 
-/* Dragging state */
 .sortable-ghost {
   opacity: 0.4;
   background: #e3f2fd;

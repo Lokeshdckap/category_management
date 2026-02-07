@@ -70,7 +70,7 @@
                 icon="edit"
                 color="primary"
                 size="sm"
-                :to="`/admin/categories/${category.uuid}/edit`"
+                :to="`categories/${category.uuid}/edit`"
               >
                 <q-tooltip>Edit</q-tooltip>
               </q-btn>
@@ -148,7 +148,7 @@ export default {
         }
 
         try {
-          const res = await this.$axios.get('/admin/categories', {
+          const res = await axios.get('/admin/categories', {
             params: { parent_id: category.id }
           })
           

@@ -22,6 +22,7 @@ Route::post('/login', LoginController::class);
 // });
 
 
+
 Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
 
     Route::get('/categories/parents', [CategoryController::class, 'parents'])

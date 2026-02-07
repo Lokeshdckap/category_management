@@ -41,7 +41,7 @@
           <q-item-section>Dashboard</q-item-section>
         </q-item> -->
 
-        <q-item clickable v-ripple to="/admin/categories">
+        <q-item clickable v-ripple to="/categories">
           <q-item-section avatar>
             <q-icon name="category" />
           </q-item-section>
@@ -71,7 +71,9 @@ export default {
 
   methods: {
     logout () {
-      localStorage.removeItem('token')
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user')
+
       this.$router.push('/login')
     }
   }

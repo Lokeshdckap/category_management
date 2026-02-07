@@ -1,8 +1,8 @@
 <template>
   <q-page class="q-pa-md">
     <q-breadcrumbs class="q-mb-md">
-      <q-breadcrumbs-el label="Dashboard" to="/admin" />
-      <q-breadcrumbs-el label="Categories" to="/admin/categories" />
+      <q-breadcrumbs-el label="Dashboard" to="/" />
+      <q-breadcrumbs-el label="Categories" to="/categories" />
       <q-breadcrumbs-el :label="isEdit ? 'Edit Category' : 'Add Category'" />
     </q-breadcrumbs>
 
@@ -292,7 +292,7 @@
         <q-btn 
           flat 
           label="Cancel" 
-          to="/admin/categories" 
+          to="/categories" 
           color="grey-7"
         />
         <q-btn 
@@ -468,7 +468,7 @@ async function submitForm() {
       }
     })
 
-    let url = '/admin/categories'
+    let url = '/categories'
     if (isEdit.value) {
       fd.append('_method', 'PUT')
       url += '/' + route.params.uuid
@@ -486,7 +486,7 @@ async function submitForm() {
       position: 'top'
     })
     
-    router.push('/admin/categories')
+    router.push('/categories')
   } catch (error) {
     console.error(error)
     
@@ -503,6 +503,8 @@ async function submitForm() {
 
 onMounted(async () => {
   await fetchParentCategories()
+
+  console.log('isEdit:', isEdit.value, 'route params:', route.params)
 
   if (isEdit.value) {
     try {
@@ -523,14 +525,14 @@ onMounted(async () => {
       })
 
       if (data.featured_image) {
-        featuredPreview.value = import.meta.env.VITE_IMG_URL + data.featured_image
+        featuredPreview.value = import.meta.env.VITE_APP_URL + data.featured_image
       }
 
       console.log(featuredPreview,"llll");
       
 
       if (data.banner_image) {
-        bannerPreview.value = import.meta.env.VITE_IMG_URL + data.banner_image
+        bannerPreview.value = import.meta.env.VITE_APP_URL + data.banner_image
       }
       
     } catch (error) {

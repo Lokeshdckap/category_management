@@ -16,7 +16,7 @@
         label="Add Category"
         icon="add"
         unelevated
-        to="/admin/categories/create"
+        to="/categories/create"
       />
     </div>
 
@@ -145,7 +145,7 @@
             icon="edit"
             color="primary"
             size="sm"
-            :to="`/admin/categories/${props.row.uuid}/edit`"
+            :to="`/categories/${props.row.uuid}/edit`"
           >
             <q-tooltip>Edit</q-tooltip>
           </q-btn>
@@ -227,7 +227,7 @@
                 icon="edit"
                 color="primary"
                 size="sm"
-                :to="`/admin/categories/${props.row.uuid}/edit`"
+                :to="`/categories/${props.row.uuid}/edit`"
               >
                 <q-tooltip>Edit</q-tooltip>
               </q-btn>
@@ -300,17 +300,17 @@
             No categories to reorder
           </div>
 
-          <draggable
+       <draggable
             v-else
             v-model="reorderCategories"
             item-key="uuid"
             handle=".drag-handle"
-            @end="onReorderDragEnd"
             :group="{ name: 'categories' }"
+            @end="onReorderDragEnd"
             class="reorder-list"
           >
             <template #item="{ element, index }">
-              <CategoryReorderItem 
+              <CategoryReorderItem
                 :element="element"
                 :index="index"
                 :view-mode="reorderViewMode"
@@ -318,6 +318,7 @@
               />
             </template>
           </draggable>
+
         </q-card-section>
 
         <q-separator />
@@ -360,9 +361,9 @@
 
 <script>
 import SubcategoryTable from './SubcategoryTable.vue'
-import CategoryReorderItem from './CategoryReorderItem.vue'
 import draggable from 'vuedraggable'
-
+import CategoryReorderItem from './CategoryReorderItem.vue'
+import axios from 'axios'
 
 export default {
   name: 'CategoryList',
@@ -370,7 +371,7 @@ export default {
   components: {
     SubcategoryTable,
     CategoryReorderItem,
-    draggable
+    draggable,
   },
 
   data() {
@@ -401,59 +402,23 @@ export default {
       ],
       
       columns: [
-        { 
-          name: 'name', 
-          label: 'Name', 
-          field: 'name', 
-          align: 'left',
-          sortable: true 
-        },
-        { 
-          name: 'slug', 
-          label: 'Slug', 
-          field: 'slug',
-          align: 'left',
-          sortable: true 
-        },
-        { 
-          name: 'subcategories', 
-          label: 'Subcategories', 
-          align: 'center'
-        },
-        { 
-          name: 'featured', 
-          label: 'Featured', 
-          field: 'featured',
-          align: 'center' 
-        },
-        { 
-          name: 'status', 
-          label: 'Status',
-          align: 'center' 
-        },
-        { 
-          name: 'actions', 
-          label: 'Actions',
-          align: 'center' 
-        }
+        { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+        { name: 'slug', label: 'Slug', field: 'slug', align: 'left', sortable: true },
+        { name: 'subcategories', label: 'Subcategories', align: 'center' },
+        { name: 'featured', label: 'Featured', field: 'featured', align: 'center' },
+        { name: 'status', label: 'Status', align: 'center' },
+        { name: 'actions', label: 'Actions', align: 'center' }
       ]
     }
   },
 
   computed: {
     hasReorderChanges() {
-      if (this.reorderCategories.length !== this.originalReorderCategories.length) {
-        return true
-      }
-
-      return this.reorderCategories.some((cat, index) => {
-        const original = this.originalReorderCategories[index]
-        return cat.uuid !== original.uuid
-      })
+      return JSON.stringify(this.reorderCategories) !== JSON.stringify(this.originalReorderCategories)
     }
   },
 
-   watch: {
+  watch: {
     showReorderDialog(val) {
       if (val) {
         this.fetchReorderCategories()
@@ -481,8 +446,8 @@ export default {
           params.featured = this.featuredFilter
         }
 
-        const res = await this.$axios.get('/admin/categories', { params })
-        this.categories = res.data
+        const res = await axios.get('/admin/categories', { params })
+        this.categories = res.data.data || res.data
       } catch (error) {
         console.error(error)
         this.$q.notify({ 
@@ -509,14 +474,13 @@ export default {
       }
 
       try {
-        const res = await this.$axios.get('/admin/categories', {
+        const res = await axios.get('/admin/categories', {
           params: { parent_id: parentId }
         })
         
-        // Use spread operator instead of $set
         this.subcategories = {
           ...this.subcategories,
-          [parentUuid]: res.data
+          [parentUuid]: res.data.data || res.data
         }
       } catch (error) {
         console.error(error)
@@ -533,10 +497,8 @@ export default {
     },
 
     async changeStatus(uuid, newStatus) {
-      // Find in main categories
       let category = this.categories.find(cat => cat.uuid === uuid)
       
-      // Search in all subcategories
       if (!category) {
         for (const key in this.subcategories) {
           const findInNested = (items) => {
@@ -562,7 +524,7 @@ export default {
       category.statusLoading = true
 
       try {
-        await this.$axios.patch(`/admin/categories/${uuid}/status`, {
+        await axios.patch(`/admin/categories/${uuid}/status`, {
           status: newStatus
         })
         
@@ -588,23 +550,13 @@ export default {
       this.$q.dialog({
         title: 'Confirm Delete',
         message: 'Are you sure you want to delete this category? This action cannot be undone.',
-        cancel: {
-          flat: true,
-          label: 'Cancel'
-        },
-        ok: {
-          flat: true,
-          label: 'Delete',
-          color: 'negative'
-        },
+        cancel: { flat: true, label: 'Cancel' },
+        ok: { flat: true, label: 'Delete', color: 'negative' },
         persistent: true
       }).onOk(async () => {
         try {
-          await this.$axios.delete(`/admin/categories/${uuid}`)
-          
-          // Clear subcategories cache
+          await axios.delete(`/admin/categories/${uuid}`)
           this.subcategories = {}
-          
           this.fetchCategories()
           this.$q.notify({ 
             type: 'positive', 
@@ -613,19 +565,13 @@ export default {
           })
         } catch (error) {
           console.error(error)
-          
           const message = error.response?.data?.message || 'Failed to delete category'
-          
-          this.$q.notify({ 
-            type: 'negative', 
-            message,
-            position: 'top'
-          })
+          this.$q.notify({ type: 'negative', message, position: 'top' })
         }
       })
     },
 
-   async fetchReorderCategories() {
+    async fetchReorderCategories() {
       this.reorderLoading = true
       try {
         const params = {}
@@ -634,60 +580,42 @@ export default {
           params.featured = true
         }
 
-        const res = await this.$axios.get('/admin/categories', { params })
+        const res = await axios.get('/admin/categories', { params })
+        const allCategories = res.data.data || res.data
         
-        // Sort by the appropriate order field
         const sortField = this.reorderViewMode === 'featured' ? 'featured_order' : 'sort_order'
-        const allCategories = res.data.sort((a, b) => a[sortField] - b[sortField])
+        const sortedCategories = [...allCategories].sort((a, b) => (a[sortField] || 0) - (b[sortField] || 0))
         
-        console.log('All categories:', allCategories)
-        
-        // Build tree structure
-        this.reorderCategories = this.buildCategoryTree(allCategories)
-        
-        console.log('Tree structure:', this.reorderCategories)
-        
+        this.reorderCategories = this.buildCategoryTree(sortedCategories)
         this.originalReorderCategories = JSON.parse(JSON.stringify(this.reorderCategories))
       } catch (error) {
         console.error(error)
-        this.$q.notify({ 
-          type: 'negative', 
-          message: 'Failed to fetch categories' 
-        })
+        this.$q.notify({ type: 'negative', message: 'Failed to fetch categories' })
       } finally {
         this.reorderLoading = false
       }
     },
 
     buildCategoryTree(categories) {
-      // Create a map of categories by ID
       const categoryMap = new Map()
       
-      // First pass: create map entries
       categories.forEach(cat => {
-        categoryMap.set(cat.id, {
-          ...cat,
-          children: []
-        })
+        categoryMap.set(cat.id, { ...cat, children: [] })
       })
 
       const tree = []
 
-      // Second pass: build hierarchy
       categories.forEach(cat => {
         const categoryNode = categoryMap.get(cat.id)
         
         if (cat.parent_id && categoryMap.has(cat.parent_id)) {
-          // Has parent - add to parent's children
           const parent = categoryMap.get(cat.parent_id)
           parent.children.push(categoryNode)
         } else {
-          // No parent - add to root
           tree.push(categoryNode)
         }
       })
 
-      console.log('Built tree:', tree)
       return tree
     },
 
@@ -704,10 +632,7 @@ export default {
       this.reorderSaving = true
 
       try {
-        // Flatten the tree to get sequential order
         const flattenedCategories = this.flattenCategoryTree(this.reorderCategories)
-        
-        console.log('Flattened for saving:', flattenedCategories)
         
         const items = flattenedCategories.map((cat, index) => ({
           uuid: cat.uuid,
@@ -718,7 +643,7 @@ export default {
           ? '/admin/categories/reorder-featured' 
           : '/admin/categories/reorder'
 
-        await this.$axios.post(endpoint, { items })
+        await axios.post(endpoint, { items })
 
         this.$q.notify({ 
           type: 'positive', 
@@ -732,11 +657,7 @@ export default {
 
       } catch (error) {
         console.error(error)
-        this.$q.notify({ 
-          type: 'negative', 
-          message: 'Failed to save order',
-          position: 'top'
-        })
+        this.$q.notify({ type: 'negative', message: 'Failed to save order', position: 'top' })
       } finally {
         this.reorderSaving = false
       }
@@ -758,5 +679,9 @@ export default {
 <style scoped>
 .cursor-pointer {
   cursor: pointer;
+}
+
+.reorder-list {
+  min-height: 50px;
 }
 </style>
