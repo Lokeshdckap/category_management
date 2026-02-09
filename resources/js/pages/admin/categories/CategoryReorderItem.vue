@@ -1,24 +1,40 @@
 <template>
-  <div :style="{ marginLeft: (level * 30) + 'px' }">
-    <q-item class="reorder-item q-mb-sm">
+  <div>
+    <!-- Main Category Item -->
+    <q-item 
+      class="reorder-item q-mb-sm" 
+      :style="{ 
+        marginLeft: (level * 40) + 'px',
+        borderLeft: level > 0 ? '3px solid #e0e0e0' : 'none'
+      }"
+    >
       <q-item-section side class="drag-handle cursor-move">
         <q-icon name="drag_indicator" color="grey-6" size="24px" />
       </q-item-section>
 
       <q-item-section>
         <q-item-label>
-          <span class="text-grey-7" v-if="level > 0">└─ </span>
+          <span v-if="level > 0" class="text-grey-6 q-mr-sm">└─</span>
+          
           <strong>{{ displayIndex }}.</strong> {{ element.name }}
-
-          <q-badge v-if="element.featured" color="positive" class="q-ml-sm">
+          
+          <q-badge 
+            v-if="element.featured" 
+            color="positive" 
+            class="q-ml-sm"
+          >
             Featured
           </q-badge>
-
-          <q-badge v-if="localChildren.length > 0" color="blue-grey-5" class="q-ml-sm">
+          
+          <q-badge 
+            v-if="localChildren.length > 0" 
+            color="blue-grey-5" 
+            class="q-ml-sm"
+          >
             {{ localChildren.length }} sub
           </q-badge>
         </q-item-label>
-
+        
         <q-item-label caption>
           Slug: {{ element.slug }}
         </q-item-label>
@@ -26,31 +42,28 @@
 
       <q-item-section side>
         <div class="text-caption text-grey-7">
-          {{ viewMode === 'featured' ? 'Featured Order' : 'Sort Order' }}:
-          {{ viewMode === 'featured' ? element.featured_order : element.sort_order }}
+          Order: {{ viewMode === 'featured' ? element.featured_order : element.sort_order }}
         </div>
       </q-item-section>
     </q-item>
 
-    <!-- Recursive draggable children -->
+    <!-- Render children recursively with draggable -->
     <draggable
       v-if="localChildren.length > 0"
       v-model="localChildren"
       item-key="uuid"
       handle=".drag-handle"
       :group="{ name: 'categories' }"
-      @end="emitChildrenUpdate"
-      class="children-list"
-      tag="div"
+      class="children-container"
+      @change="onChildrenChange"
     >
       <template #item="{ element: child, index: childIndex }">
-        <CategoryReorderItem
+        <CategoryReorderItem 
           :element="child"
           :index="childIndex"
           :view-mode="viewMode"
           :level="level + 1"
           :parent-index="displayIndex"
-          @update-children="forwardChildrenUpdate"
         />
       </template>
     </draggable>
@@ -92,16 +105,7 @@ export default {
 
   data() {
     return {
-      localChildren: this.element.children ? [...this.element.children] : []
-    }
-  },
-
-  watch: {
-    'element.children': {
-      deep: true,
-      handler(val) {
-        this.localChildren = val ? [...val] : []
-      }
+      localChildren: []
     }
   },
 
@@ -114,16 +118,21 @@ export default {
     }
   },
 
-  methods: {
-    emitChildrenUpdate() {
-      this.$emit('update-children', {
-        uuid: this.element.uuid,
-        children: this.localChildren
-      })
-    },
+  watch: {
+    'element.children': {
+      handler(newVal) {
+        this.localChildren = newVal || []
+      },
+      immediate: true,
+      deep: true
+    }
+  },
 
-    forwardChildrenUpdate(payload) {
-      this.$emit('update-children', payload)
+  methods: {
+    onChildrenChange() {
+      if (this.element.children) {
+        this.element.children.splice(0, this.element.children.length, ...this.localChildren)
+      }
     }
   }
 }
@@ -135,6 +144,7 @@ export default {
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   transition: all 0.3s;
+  position: relative;
 }
 
 .reorder-item:hover {
@@ -151,16 +161,16 @@ export default {
   cursor: grabbing;
 }
 
-.children-list {
-  min-height: 10px;
+.children-container {
+  min-height: 20px;
 }
 
-.sortable-ghost {
+:deep(.sortable-ghost) {
   opacity: 0.4;
   background: #e3f2fd;
 }
 
-.sortable-drag {
+:deep(.sortable-drag) {
   opacity: 0.8;
   cursor: grabbing !important;
 }

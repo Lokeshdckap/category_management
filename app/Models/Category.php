@@ -15,6 +15,7 @@ class Category extends Model
         'parent_id',
         'name',
         'slug',
+        'slug_url',
         'slug_status',
         'description',
         'featured_image',
@@ -44,15 +45,14 @@ class Category extends Model
         return 'uuid';
     }
 
-    public function parent()
+      public function parent()
     {
         return $this->belongsTo(Category::class, 'parent_id');
     }
 
     public function children()
     {
-        return $this->hasMany(Category::class, 'parent_id')
-            ->orderBy('sort_order');
+        return $this->hasMany(Category::class, 'parent_id');
     }
 
     public function getFeaturedImageUrlAttribute()
@@ -97,5 +97,10 @@ class Category extends Model
         }
         
         return implode('-', $slugParts);
+    }
+
+     public function getFullSlugUrlAttribute()
+    {
+        return $this->slug_url;
     }
 }

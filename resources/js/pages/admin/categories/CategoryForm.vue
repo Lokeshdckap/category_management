@@ -37,27 +37,27 @@
           </div>
         </div>
 
-        <q-input 
-          v-model="form.slug" 
-          label="Slug *" 
-          outlined 
-          dense 
-          :disable="form.slug_status"
-          :hint="form.slug_status ? 'Auto-generated from category name' : 'Enter custom URL slug'"
-          :rules="[val => !!val || 'Slug is required']"
-          :bg-color="form.slug_status ? 'grey-2' : 'white'"
-        >
-          <template v-slot:append>
-            <q-icon 
-              v-if="!form.slug_status"
-              name="refresh" 
-              class="cursor-pointer" 
-              @click="generateSlug"
-            >
-              <q-tooltip>Regenerate slug</q-tooltip>
-            </q-icon>
-          </template>
-        </q-input>
+         <q-input 
+    v-model="form.slug" 
+    label="Slug *" 
+    outlined 
+    dense 
+    :disable="form.slug_status"
+    :hint="form.slug_status ? 'Auto-generated from category name' : 'Enter custom URL slug'"
+    :rules="[val => !!val || 'Slug is required']"
+    :bg-color="form.slug_status ? 'grey-2' : 'white'"
+  >
+    <template v-slot:append>
+      <q-icon 
+        v-if="!form.slug_status"
+        name="refresh" 
+        class="cursor-pointer" 
+        @click="generateSlug"
+      >
+        <q-tooltip>Regenerate slug</q-tooltip>
+      </q-icon>
+    </template>
+  </q-input>
 
         <q-select
           v-model="form.parent_id"
@@ -278,12 +278,12 @@
           hint="Recommended: 150-160 characters"
         />
 
-        <div v-if="form.slug" class="q-mt-md">
-          <label class="text-subtitle2 q-mb-xs block">URL Preview</label>
-          <div class="text-grey-7 text-body2 bg-grey-2 q-pa-sm rounded-borders">
-            {{ urlPreview }}
-          </div>
-        </div>
+         <div v-if="form.slug" class="q-mt-md">
+    <label class="text-subtitle2 q-mb-xs block">Full URL Path</label>
+    <div class="text-grey-7 text-body2 bg-grey-2 q-pa-sm rounded-borders">
+      {{ urlPreview }}
+    </div>
+  </div>
       </q-card-section>
 
       <q-separator />
@@ -355,7 +355,15 @@ const bannerPreview = ref(null)
 
 const urlPreview = computed(() => {
   const baseUrl = window.location.origin
-  return `${baseUrl}/category/${form.value.slug}`
+  
+  if (form.value.parent_id) {
+    const parent = parentOptions.value.find(p => p.id === form.value.parent_id)
+    if (parent && parent.slug_url) {
+      return `${baseUrl}/${parent.slug_url}/${form.value.slug}`
+    }
+  }
+  
+  return `${baseUrl}/${form.value.slug}`
 })
 
 // Auto-generate slug when name or parent changes (only if auto slug is enabled)
@@ -440,26 +448,27 @@ async function fetchParentCategories() {
   }
 }
 
-async function submitForm() {
+
+async function submitForm () {
   if (!form.value.name || !form.value.slug) {
-    $q.notify({ 
-      type: 'warning', 
-      message: 'Please fill in all required fields' 
+    $q.notify({
+      type: 'warning',
+      message: 'Please fill in all required fields'
     })
     return
   }
 
   loading.value = true
-  
+
   try {
     const fd = new FormData()
 
     Object.entries(form.value).forEach(([key, val]) => {
       if (val === null || val === undefined) return
-      
+
       if (key === 'featured_image_meta' || key === 'banner_image_meta') {
         fd.append(key, JSON.stringify(val))
-      } else if (key === 'featured' || key === 'status' || key === 'slug_status') {
+      } else if (['featured', 'status', 'slug_status'].includes(key)) {
         fd.append(key, val ? '1' : '0')
       } else if (val instanceof File) {
         fd.append(key, val)
@@ -468,31 +477,50 @@ async function submitForm() {
       }
     })
 
-    let url = '/categories'
+    let response
+
     if (isEdit.value) {
+      // ✅ METHOD SPOOFING (REQUIRED)
       fd.append('_method', 'PUT')
-      url += '/' + route.params.uuid
+
+      response = await axios.post(
+        `/admin/categories/${route.params.uuid}`,
+        fd,
+        {
+          headers: {
+            Accept: 'application/json'
+          }
+        }
+      )
+    } else {
+      response = await axios.post(
+        '/admin/categories',
+        fd,
+        {
+          headers: {
+            Accept: 'application/json'
+          }
+        }
+      )
     }
 
-    await axios.post(url, fd, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
-    $q.notify({ 
-      type: 'positive', 
-      message: isEdit.value ? 'Category updated successfully' : 'Category created successfully',
+    $q.notify({
+      type: 'positive',
+      message: isEdit.value
+        ? 'Category updated successfully'
+        : 'Category created successfully',
       position: 'top'
     })
-    
+
     router.push('/categories')
   } catch (error) {
     console.error(error)
-    
-    const message = error.response?.data?.message || 'Failed to save category'
-    $q.notify({ 
-      type: 'negative', 
+
+    const message =
+      error.response?.data?.message || 'Failed to save category'
+
+    $q.notify({
+      type: 'negative',
       message,
       position: 'top'
     })
@@ -500,6 +528,8 @@ async function submitForm() {
     loading.value = false
   }
 }
+
+
 
 onMounted(async () => {
   await fetchParentCategories()

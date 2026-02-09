@@ -9,7 +9,7 @@
         label="Reorder"
         icon="swap_vert"
         class="q-mr-sm"
-        @click="showReorderDialog = true"
+        @click="openReorderDialog"
       />
       <q-btn
         color="primary"
@@ -19,6 +19,22 @@
         to="/categories/create"
       />
     </div>
+
+    <!-- Breadcrumbs Navigation -->
+    <q-breadcrumbs v-if="breadcrumbs.length > 0" class="q-mb-md">
+      <q-breadcrumbs-el 
+        label="All Categories" 
+        @click="navigateToRoot"
+        class="cursor-pointer"
+      />
+      <q-breadcrumbs-el 
+        v-for="(crumb, index) in breadcrumbs"
+        :key="crumb.uuid"
+        :label="crumb.name"
+        @click="navigateToBreadcrumb(index)"
+        class="cursor-pointer"
+      />
+    </q-breadcrumbs>
 
     <!-- Filters -->
     <div class="row q-gutter-md q-mb-md">
@@ -76,28 +92,9 @@
       flat
       bordered
       :rows-per-page-options="[10, 25, 50]"
+      :loading="loading"
       class="shadow-1"
     >
-      <!-- Name with Expand Icon -->
-      <template #body-cell-name="props">
-        <q-td :props="props">
-          <div class="row items-center no-wrap">
-            <q-btn
-              v-if="props.row.children_count > 0"
-              flat
-              dense
-              round
-              size="sm"
-              :icon="props.expand ? 'expand_more' : 'chevron_right'"
-              @click="props.expand = !props.expand"
-            />
-            <span :class="{ 'q-ml-sm': props.row.children_count > 0 }">
-              {{ props.row.name }}
-            </span>
-          </div>
-        </q-td>
-      </template>
-
       <!-- Subcategory Count - Clickable -->
       <template #body-cell-subcategories="props">
         <q-td :props="props">
@@ -105,7 +102,7 @@
             v-if="props.row.children_count > 0"
             color="blue-grey-6"
             class="cursor-pointer"
-            @click="props.expand = !props.expand"
+            @click="viewSubcategories(props.row)"
           >
             {{ props.row.children_count }}
           </q-badge>
@@ -130,7 +127,7 @@
             :model-value="props.row.status"
             color="positive"
             :disable="props.row.statusLoading"
-            @update:model-value="changeStatus(props.row.uuid, $event)"
+            @update:model-value="changeStatus(props.row, $event)"
           />
         </q-td>
       </template>
@@ -162,130 +159,16 @@
           </q-btn>
         </q-td>
       </template>
-
-      <!-- Expanded Row - Show Subcategories -->
-      <template v-slot:body="props">
-        <q-tr :props="props">
-          <q-td 
-            v-for="col in props.cols" 
-            :key="col.name" 
-            :props="props"
-          >
-            <!-- Name Column -->
-            <div v-if="col.name === 'name'" class="row items-center no-wrap">
-              <q-btn
-                v-if="props.row.children_count > 0"
-                flat
-                dense
-                round
-                size="sm"
-                :icon="props.expand ? 'expand_more' : 'chevron_right'"
-                @click="toggleExpand(props)"
-              />
-              <span :class="{ 'q-ml-sm': props.row.children_count > 0 }">
-                {{ props.row.name }}
-              </span>
-            </div>
-
-            <!-- Subcategories Column -->
-            <div v-else-if="col.name === 'subcategories'">
-              <q-badge 
-                v-if="props.row.children_count > 0"
-                color="blue-grey-6"
-                class="cursor-pointer"
-                @click="toggleExpand(props)"
-              >
-                {{ props.row.children_count }}
-              </q-badge>
-              <span v-else class="text-grey-6">—</span>
-            </div>
-
-            <!-- Featured Column -->
-            <div v-else-if="col.name === 'featured'">
-              <q-badge 
-                :color="props.row.featured ? 'positive' : 'grey-5'" 
-                :label="props.row.featured ? 'Yes' : 'No'"
-              />
-            </div>
-
-            <!-- Status Column -->
-            <div v-else-if="col.name === 'status'">
-              <q-toggle
-                :model-value="props.row.status"
-                color="positive"
-                :disable="props.row.statusLoading"
-                @update:model-value="changeStatus(props.row.uuid, $event)"
-              />
-            </div>
-
-            <!-- Actions Column -->
-            <div v-else-if="col.name === 'actions'" class="q-gutter-x-sm">
-              <q-btn
-                flat
-                dense
-                round
-                icon="edit"
-                color="primary"
-                size="sm"
-                :to="`/categories/${props.row.uuid}/edit`"
-              >
-                <q-tooltip>Edit</q-tooltip>
-              </q-btn>
-              <q-btn
-                flat
-                dense
-                round
-                icon="delete"
-                color="negative"
-                size="sm"
-                @click="deleteCategory(props.row.uuid)"
-              >
-                <q-tooltip>Delete</q-tooltip>
-              </q-btn>
-            </div>
-
-            <!-- Other Columns -->
-            <div v-else>{{ col.value }}</div>
-          </q-td>
-        </q-tr>
-
-        <!-- Expanded Subcategories Row -->
-        <q-tr v-if="props.expand" :props="props">
-          <q-td colspan="100%">
-            <div class="q-pa-md bg-grey-1">
-              <div class="text-subtitle2 q-mb-md">
-                Subcategories of "{{ props.row.name }}"
-                <q-spinner v-if="loadingSubcategories[props.row.uuid]" size="20px" class="q-ml-sm" />
-              </div>
-
-              <!-- Recursive Subcategory Table -->
-              <SubcategoryTable 
-                v-if="subcategories[props.row.uuid]"
-                :categories="subcategories[props.row.uuid]"
-                :level="1"
-                @change-status="changeStatus"
-                @delete-category="deleteCategory"
-                @load-subcategories="loadSubcategories"
-              />
-            </div>
-          </q-td>
-        </q-tr>
-      </template>
     </q-table>
-     <q-dialog v-model="showReorderDialog" maximized>
+
+    <!-- Reorder Modal Dialog -->
+    <q-dialog v-model="showReorderDialog" maximized>
       <q-card>
         <q-card-section class="row items-center q-pb-none">
-          <div class="text-h6">Reorder Categories</div>
+          <div class="text-h6">
+            Reorder {{ currentLevelName }}
+          </div>
           <q-space />
-          <q-btn-toggle
-            v-model="reorderViewMode"
-            toggle-color="primary"
-            :options="[
-              { label: 'All Categories', value: 'all' },
-              { label: 'Featured Only', value: 'featured' }
-            ]"
-            @update:model-value="fetchReorderCategories"
-          />
           <q-btn icon="close" flat round dense v-close-popup />
         </q-card-section>
 
@@ -297,28 +180,55 @@
           </div>
 
           <div v-else-if="reorderCategories.length === 0" class="text-center q-pa-md text-grey-7">
-            No categories to reorder
+            No categories to reorder at this level
           </div>
 
-       <draggable
+          <draggable
             v-else
             v-model="reorderCategories"
             item-key="uuid"
             handle=".drag-handle"
-            :group="{ name: 'categories' }"
             @end="onReorderDragEnd"
             class="reorder-list"
           >
             <template #item="{ element, index }">
-              <CategoryReorderItem
-                :element="element"
-                :index="index"
-                :view-mode="reorderViewMode"
-                :level="0"
-              />
+              <q-item class="reorder-item q-mb-sm">
+                <q-item-section side class="drag-handle cursor-move">
+                  <q-icon name="drag_indicator" color="grey-6" size="24px" />
+                </q-item-section>
+
+                <q-item-section>
+                  <q-item-label>
+                    <strong>{{ index + 1 }}.</strong> {{ element.name }}
+                    <q-badge 
+                      v-if="element.featured" 
+                      color="positive" 
+                      class="q-ml-sm"
+                    >
+                      Featured
+                    </q-badge>
+                    <q-badge 
+                      v-if="element.children_count > 0" 
+                      color="blue-grey-5" 
+                      class="q-ml-sm"
+                    >
+                      {{ element.children_count }} sub
+                    </q-badge>
+                  </q-item-label>
+                  
+                  <q-item-label caption>
+                    Slug: {{ element.slug }}
+                  </q-item-label>
+                </q-item-section>
+
+                <q-item-section side>
+                  <div class="text-caption text-grey-7">
+                    Order: {{ element.sort_order }}
+                  </div>
+                </q-item-section>
+              </q-item>
             </template>
           </draggable>
-
         </q-card-section>
 
         <q-separator />
@@ -347,43 +257,37 @@
           </div>
           <ul class="q-pl-md text-body2 q-mb-none">
             <li>Drag categories using the handle icon (☰) on the left</li>
-            <li>Categories at the top will appear first on your site</li>
-            <li>Hierarchical structure shows parent-child relationships</li>
-            <li>Use "All Categories" to set the general display order</li>
-            <li>Use "Featured Only" to set the order for featured categories</li>
+            <li>Categories at the top will appear first</li>
+            <li>Only categories at the current level are shown for reordering</li>
+            <li>Navigate to subcategories in the main table to reorder them</li>
           </ul>
         </q-card-section>
       </q-card>
     </q-dialog>
-
   </q-page>
 </template>
 
 <script>
-import SubcategoryTable from './SubcategoryTable.vue'
 import draggable from 'vuedraggable'
-import CategoryReorderItem from './CategoryReorderItem.vue'
 import axios from 'axios'
 
 export default {
   name: 'CategoryList',
 
   components: {
-    SubcategoryTable,
-    CategoryReorderItem,
-    draggable,
+    draggable
   },
 
   data() {
     return {
       categories: [],
-      subcategories: {},
-      loadingSubcategories: {},
+      loading: false,
       search: '',
       statusFilter: null,
       featuredFilter: null,
+      currentParentId: null,
+      breadcrumbs: [],
       showReorderDialog: false,
-      reorderViewMode: 'all',
       reorderCategories: [],
       originalReorderCategories: [],
       reorderLoading: false,
@@ -415,14 +319,13 @@ export default {
   computed: {
     hasReorderChanges() {
       return JSON.stringify(this.reorderCategories) !== JSON.stringify(this.originalReorderCategories)
-    }
-  },
+    },
 
-  watch: {
-    showReorderDialog(val) {
-      if (val) {
-        this.fetchReorderCategories()
+    currentLevelName() {
+      if (this.breadcrumbs.length > 0) {
+        return `Subcategories of "${this.breadcrumbs[this.breadcrumbs.length - 1].name}"`
       }
+      return 'Categories'
     }
   },
 
@@ -432,10 +335,18 @@ export default {
 
   methods: {
     async fetchCategories() {
+      this.loading = true
       try {
         const params = {
-          search: this.search,
-          main_only: true
+          search: this.search
+        }
+
+        // If we're viewing subcategories, filter by parent
+        if (this.currentParentId) {
+          params.parent_id = this.currentParentId
+        } else {
+          // Otherwise show only main categories
+          params.main_only = true
         }
 
         if (this.statusFilter !== null) {
@@ -447,84 +358,54 @@ export default {
         }
 
         const res = await axios.get('/admin/categories', { params })
-        this.categories = res.data.data || res.data
-      } catch (error) {
-        console.error(error)
-        this.$q.notify({ 
-          type: 'negative', 
-          message: 'Failed to fetch categories' 
-        })
-      }
-    },
-
-    async toggleExpand(props) {
-      props.expand = !props.expand
-      
-      if (props.expand && !this.subcategories[props.row.uuid]) {
-        await this.loadSubcategories(props.row.id, props.row.uuid)
-      }
-    },
-
-    async loadSubcategories(parentId, parentUuid) {
-      if (this.subcategories[parentUuid]) return
-
-      this.loadingSubcategories = {
-        ...this.loadingSubcategories,
-        [parentUuid]: true
-      }
-
-      try {
-        const res = await axios.get('/admin/categories', {
-          params: { parent_id: parentId }
-        })
-        
-        this.subcategories = {
-          ...this.subcategories,
-          [parentUuid]: res.data.data || res.data
-        }
+        this.categories = res.data
       } catch (error) {
         console.error(error)
         this.$q.notify({
           type: 'negative',
-          message: 'Failed to load subcategories'
+          message: 'Failed to fetch categories'
         })
       } finally {
-        this.loadingSubcategories = {
-          ...this.loadingSubcategories,
-          [parentUuid]: false
-        }
+        this.loading = false
       }
     },
 
-    async changeStatus(uuid, newStatus) {
-      let category = this.categories.find(cat => cat.uuid === uuid)
+    viewSubcategories(category) {
+      // Add to breadcrumbs
+      this.breadcrumbs.push({
+        uuid: category.uuid,
+        id: category.id,
+        name: category.name
+      })
+
+      // Set current parent and fetch children
+      this.currentParentId = category.id
+      this.fetchCategories()
+    },
+
+    navigateToRoot() {
+      this.breadcrumbs = []
+      this.currentParentId = null
+      this.fetchCategories()
+    },
+
+    navigateToBreadcrumb(index) {
+      // Remove breadcrumbs after the clicked one
+      const clickedCrumb = this.breadcrumbs[index]
+      this.breadcrumbs = this.breadcrumbs.slice(0, index + 1)
       
-      if (!category) {
-        for (const key in this.subcategories) {
-          const findInNested = (items) => {
-            for (const item of items) {
-              if (item.uuid === uuid) return item
-              if (this.subcategories[item.uuid]) {
-                const found = findInNested(this.subcategories[item.uuid])
-                if (found) return found
-              }
-            }
-            return null
-          }
-          category = findInNested(this.subcategories[key])
-          if (category) break
-        }
-      }
+      // Set parent and fetch
+      this.currentParentId = clickedCrumb.id
+      this.fetchCategories()
+    },
 
-      if (!category) return
-
+    async changeStatus(category, newStatus) {
       const oldStatus = category.status
-      
       category.status = newStatus
       category.statusLoading = true
 
       try {
-        await axios.patch(`/admin/categories/${uuid}/status`, {
+        await axios.patch(`/admin/categories/${category.uuid}/status`, {
           status: newStatus
         })
         
@@ -556,7 +437,6 @@ export default {
       }).onOk(async () => {
         try {
           await axios.delete(`/admin/categories/${uuid}`)
-          this.subcategories = {}
           this.fetchCategories()
           this.$q.notify({ 
             type: 'positive', 
@@ -571,22 +451,27 @@ export default {
       })
     },
 
+    openReorderDialog() {
+      this.showReorderDialog = true
+      this.fetchReorderCategories()
+    },
+
     async fetchReorderCategories() {
       this.reorderLoading = true
       try {
         const params = {}
         
-        if (this.reorderViewMode === 'featured') {
-          params.featured = true
+        // Fetch categories at current level only
+        if (this.currentParentId) {
+          params.parent_id = this.currentParentId
+        } else {
+          params.main_only = true
         }
 
         const res = await axios.get('/admin/categories', { params })
-        const allCategories = res.data.data || res.data
         
-        const sortField = this.reorderViewMode === 'featured' ? 'featured_order' : 'sort_order'
-        const sortedCategories = [...allCategories].sort((a, b) => (a[sortField] || 0) - (b[sortField] || 0))
-        
-        this.reorderCategories = this.buildCategoryTree(sortedCategories)
+        // Sort by sort_order
+        this.reorderCategories = [...res.data].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
         this.originalReorderCategories = JSON.parse(JSON.stringify(this.reorderCategories))
       } catch (error) {
         console.error(error)
@@ -594,29 +479,6 @@ export default {
       } finally {
         this.reorderLoading = false
       }
-    },
-
-    buildCategoryTree(categories) {
-      const categoryMap = new Map()
-      
-      categories.forEach(cat => {
-        categoryMap.set(cat.id, { ...cat, children: [] })
-      })
-
-      const tree = []
-
-      categories.forEach(cat => {
-        const categoryNode = categoryMap.get(cat.id)
-        
-        if (cat.parent_id && categoryMap.has(cat.parent_id)) {
-          const parent = categoryMap.get(cat.parent_id)
-          parent.children.push(categoryNode)
-        } else {
-          tree.push(categoryNode)
-        }
-      })
-
-      return tree
     },
 
     onReorderDragEnd() {
@@ -632,18 +494,12 @@ export default {
       this.reorderSaving = true
 
       try {
-        const flattenedCategories = this.flattenCategoryTree(this.reorderCategories)
-        
-        const items = flattenedCategories.map((cat, index) => ({
+        const items = this.reorderCategories.map((cat, index) => ({
           uuid: cat.uuid,
-          [this.reorderViewMode === 'featured' ? 'featured_order' : 'sort_order']: index + 1
+          sort_order: index + 1
         }))
 
-        const endpoint = this.reorderViewMode === 'featured' 
-          ? '/admin/categories/reorder-featured' 
-          : '/admin/categories/reorder'
-
-        await axios.post(endpoint, { items })
+        await axios.post('/admin/categories/reorder', { items })
 
         this.$q.notify({ 
           type: 'positive', 
@@ -661,16 +517,6 @@ export default {
       } finally {
         this.reorderSaving = false
       }
-    },
-
-    flattenCategoryTree(categories, result = []) {
-      categories.forEach(cat => {
-        result.push(cat)
-        if (cat.children && cat.children.length > 0) {
-          this.flattenCategoryTree(cat.children, result)
-        }
-      })
-      return result
     }
   }
 }
@@ -683,5 +529,36 @@ export default {
 
 .reorder-list {
   min-height: 50px;
+}
+
+.reorder-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.reorder-item:hover {
+  background: #f5f5f5;
+  border-color: #1976d2;
+}
+
+.drag-handle {
+  cursor: move;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+:deep(.sortable-ghost) {
+  opacity: 0.4;
+  background: #e3f2fd;
+}
+
+:deep(.sortable-drag) {
+  opacity: 0.8;
+  cursor: grabbing !important;
 }
 </style>

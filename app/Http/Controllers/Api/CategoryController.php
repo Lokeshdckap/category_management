@@ -13,63 +13,56 @@ use Intervention\Image\Drivers\Gd\Driver;
 class CategoryController extends Controller
 {
     public function index(Request $request)
-    {
-        $query = Category::with("parent:id,name,slug")->withCount("children");
+{
+    $query = Category::with('parent:id,name,slug')
+        ->withCount('children');
 
-        if ($request->has("main_only") && $request->main_only) {
-            $query->whereNull("parent_id");
-        }
-
-        if ($request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where(
-                    "name",
-                    "like",
-                    "%" . $request->search . "%"
-                )->orWhere("slug", "like", "%" . $request->search . "%");
-            });
-        }
-
-        if ($request->has("status")) {
-            $status = filter_var($request->status, FILTER_VALIDATE_BOOLEAN);
-            $query->where("status", $status);
-        }
-
-        if ($request->has("featured")) {
-            $featured = filter_var($request->featured, FILTER_VALIDATE_BOOLEAN);
-            $query->where("featured", $featured);
-        }
-
-        if ($request->has("parent_id")) {
-            if ($request->parent_id === "null" || $request->parent_id === "") {
-                $query->whereNull("parent_id");
-            } else {
-                $query->where("parent_id", $request->parent_id);
-            }
-        }
-
-        $categories = $query->orderBy("sort_order")->get();
-
-        return response()->json(
-            $categories->map(function ($category) {
-                return [
-                    "id" => $category->id,
-                    "uuid" => $category->uuid,
-                    "name" => $category->name,
-                    "slug" => $category->slug,
-                    "parent_id" => $category->parent_id,
-                    "parent" => $category->parent,
-                    "featured" => $category->featured,
-                    "status" => $category->status,
-                    "sort_order" => $category->sort_order,
-                    "featured_order" => $category->featured_order,
-                    "children_count" => $category->children_count,
-                    "has_children" => $category->children_count > 0,
-                    "created_at" => $category->created_at,
-                ];
-            })
-        );
+    if ($request->boolean('main_only')) {
+        $query->whereNull('parent_id');
     }
+
+    if ($request->filled('search')) {
+        $query->where(function ($q) use ($request) {
+            $q->where('name', 'like', "%{$request->search}%")
+              ->orWhere('slug', 'like', "%{$request->search}%");
+        });
+    }
+
+    if ($request->has('status')) {
+        $query->where('status', $request->boolean('status'));
+    }
+
+    if ($request->has('featured')) {
+        $query->where('featured', $request->boolean('featured'));
+    }
+
+    if ($request->has('parent_id')) {
+        $request->parent_id === 'null' || $request->parent_id === ''
+            ? $query->whereNull('parent_id')
+            : $query->where('parent_id', $request->parent_id);
+    }
+
+    $categories = $query->orderBy('sort_order')->get();
+
+    return response()->json(
+        $categories->map(fn ($category) => [
+            'id' => $category->id,
+            'uuid' => $category->uuid,
+            'name' => $category->name,
+            'slug' => $category->slug,
+            'parent_id' => $category->parent_id,
+            'parent' => $category->parent,
+            'featured' => $category->featured,
+            'status' => $category->status,
+            'sort_order' => $category->sort_order,
+            'featured_order' => $category->featured_order,
+            'children_count' => $category->children_count, // ✅
+            'has_children' => $category->children_count > 0, // ✅
+            'created_at' => $category->created_at,
+        ])
+    );
+}
+
 
     public function parents(Request $request)
     {
@@ -174,111 +167,134 @@ class CategoryController extends Controller
 
     public function edit($uuid)
     {
-        $category = Category::where("uuid", $uuid)->firstOrFail();
+        $category = Category::where('uuid', $uuid)->firstOrFail();
 
-        return response()->json($category);
+        return response()->json([
+            'id' => $category->id,
+            'uuid' => $category->uuid,
+            'name' => $category->name,
+            'slug' => $category->slug,
+            'slug_url' => $category->slug_url,
+            'description' => $category->description,
+            'parent_id' => $category->parent_id,
+            'featured' => $category->featured,
+            'status' => $category->status,
+            'slug_status' => $category->slug_status,
+            'featured_image' => $category->featured_image,
+            'featured_image_url' => $category->featured_image 
+                ? Storage::url($category->featured_image) 
+                : null,
+            'featured_image_meta' => $category->featured_image_meta ?? [
+                'alt' => '',
+                'title' => '',
+                'caption' => ''
+            ],
+            'banner_image' => $category->banner_image,
+            'banner_image_url' => $category->banner_image 
+                ? Storage::url($category->banner_image) 
+                : null,
+            'banner_image_meta' => $category->banner_image_meta ?? [
+                'alt' => '',
+                'title' => '',
+                'caption' => ''
+            ],
+            'meta_title' => $category->meta_title,
+            'meta_description' => $category->meta_description,
+            'sort_order' => $category->sort_order,
+            'featured_order' => $category->featured_order,
+        ]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validateData($request);
 
-        $data["uuid"] = Str::uuid();
-        $data["featured"] = $request->boolean("featured", false);
-        $data["status"] = $request->boolean("status", true);
-        $data["slug_status"] = $request->boolean("slug_status", true);
-        $data["parent_id"] = $request->parent_id;
+        $data['uuid'] = Str::uuid();
+        $data['featured'] = $request->boolean('featured', false);
+        $data['status'] = $request->boolean('status', true);
+        $data['slug_status'] = $request->boolean('slug_status', true);
+        $data['parent_id'] = $request->parent_id;
 
-        if ($data["slug_status"]) {
+        // Generate base slug
+        if ($data['slug_status']) {
             $baseSlug = Str::slug($request->name);
-            $data["slug"] = $this->generateHierarchicalSlug(
-                $baseSlug,
-                $data["parent_id"]
-            );
         } else {
-            $data["slug"] = $this->generateHierarchicalSlug(
-                $request->slug,
-                $data["parent_id"]
-            );
+            $baseSlug = $request->slug;
         }
+
+        // Generate unique slug (without hierarchy)
+        $data['slug'] = $this->generateUniqueSlug($baseSlug, $data['parent_id']);
+
+        // Generate hierarchical slug URL
+        $data['slug_url'] = $this->generateSlugUrl($data['slug'], $data['parent_id']);
 
         $this->handleImages($request, $data);
 
-        $data["sort_order"] = Category::max("sort_order") + 1;
+        $data['sort_order'] = Category::max('sort_order') + 1;
 
-        if ($data["featured"]) {
-            $data["featured_order"] =
-                Category::where("featured", true)->max("featured_order") + 1;
+        if ($data['featured']) {
+            $data['featured_order'] = Category::where('featured', true)->max('featured_order') + 1;
         }
 
         $category = Category::create($data);
 
-        return response()->json(
-            [
-                "message" => "Category created successfully",
-                "data" => $category,
-            ],
-            201
-        );
+        return response()->json([
+            'message' => 'Category created successfully',
+            'data' => $category
+        ], 201);
     }
 
-    public function update(Request $request, $uuid)
+     public function update(Request $request, $uuid)
     {
-        $category = Category::where("uuid", $uuid)->firstOrFail();
+        $category = Category::where('uuid', $uuid)->firstOrFail();
 
         $data = $this->validateData($request, $category->id);
 
-        $data["featured"] = $request->boolean("featured", false);
-        $data["status"] = $request->boolean("status", true);
-        $data["slug_status"] = $request->boolean("slug_status", true);
-        $data["parent_id"] = $request->parent_id;
+        $data['featured'] = $request->boolean('featured', false);
+        $data['status'] = $request->boolean('status', true);
+        $data['slug_status'] = $request->boolean('slug_status', true);
+        $data['parent_id'] = $request->parent_id;
 
-        if (
-            $data["parent_id"] &&
-            $this->wouldCreateCircular($category->id, $data["parent_id"])
-        ) {
-            return response()->json(
-                [
-                    "message" =>
-                        "Cannot set parent: would create circular reference",
-                ],
-                422
-            );
+        // Prevent circular parent relationship
+        if ($data['parent_id'] && $this->wouldCreateCircular($category->id, $data['parent_id'])) {
+            return response()->json([
+                'message' => 'Cannot set parent: would create circular reference'
+            ], 422);
         }
 
-        if ($data["slug_status"]) {
-            $baseSlug = Str::slug($request->name);
-            $newSlug = $this->generateHierarchicalSlug(
-                $baseSlug,
-                $data["parent_id"],
-                $category->id
-            );
+        // Generate slug if changed
+        $slugChanged = false;
+        if ($data['slug_status']) {
+            $newBaseSlug = Str::slug($request->name);
         } else {
-            $newSlug = $this->generateHierarchicalSlug(
-                $request->slug,
-                $data["parent_id"],
-                $category->id
-            );
+            $newBaseSlug = $request->slug;
         }
 
-        if ($newSlug !== $category->slug) {
-            $data["slug"] = $newSlug;
+        // Check if slug or parent changed
+        if ($newBaseSlug !== $category->slug || $data['parent_id'] !== $category->parent_id) {
+            $data['slug'] = $this->generateUniqueSlug($newBaseSlug, $data['parent_id'], $category->id);
+            $data['slug_url'] = $this->generateSlugUrl($data['slug'], $data['parent_id']);
+            $slugChanged = true;
         }
 
         $this->handleImages($request, $data, $category);
 
-        if ($data["featured"] && !$category->featured) {
-            $data["featured_order"] =
-                Category::where("featured", true)->max("featured_order") + 1;
-        } elseif (!$data["featured"] && $category->featured) {
-            $data["featured_order"] = 0;
+        if ($data['featured'] && !$category->featured) {
+            $data['featured_order'] = Category::where('featured', true)->max('featured_order') + 1;
+        } elseif (!$data['featured'] && $category->featured) {
+            $data['featured_order'] = 0;
         }
 
         $category->update($data);
 
+        // If slug_url changed, update all children's slug_url
+        if ($slugChanged && $category->children()->count() > 0) {
+            $this->updateChildrenSlugUrls($category);
+        }
+
         return response()->json([
-            "message" => "Category updated successfully",
-            "data" => $category,
+            'message' => 'Category updated successfully',
+            'data' => $category
         ]);
     }
 
@@ -314,6 +330,67 @@ class CategoryController extends Controller
             $count++;
         }
     }
+
+    private function generateUniqueSlug($baseSlug, $parentId = null, $ignoreId = null)
+    {
+        $originalSlug = $baseSlug;
+        $count = 1;
+
+        while (true) {
+            $query = Category::where('slug', $baseSlug);
+            
+            // Only check uniqueness within same parent level
+            if ($parentId) {
+                $query->where('parent_id', $parentId);
+            } else {
+                $query->whereNull('parent_id');
+            }
+            
+            if ($ignoreId) {
+                $query->where('id', '!=', $ignoreId);
+            }
+
+            if (!$query->exists()) {
+                return $baseSlug;
+            }
+
+            $baseSlug = $originalSlug . '-' . $count;
+            $count++;
+        }
+    }
+
+    private function generateSlugUrl($slug, $parentId = null)
+    {
+        if (!$parentId) {
+            // Root level category
+            return $slug;
+        }
+
+        // Get parent category
+        $parent = Category::find($parentId);
+        if (!$parent) {
+            return $slug;
+        }
+
+        // Build hierarchical path
+        return $parent->slug_url . '/' . $slug;
+    }
+
+    private function updateChildrenSlugUrls($category)
+    {
+        $children = $category->children;
+
+        foreach ($children as $child) {
+            $newSlugUrl = $category->slug_url . '/' . $child->slug;
+            $child->update(['slug_url' => $newSlugUrl]);
+
+            // Recursively update grandchildren
+            if ($child->children()->count() > 0) {
+                $this->updateChildrenSlugUrls($child);
+            }
+        }
+    }
+
 
     private function validateData(Request $request, $id = null)
     {
