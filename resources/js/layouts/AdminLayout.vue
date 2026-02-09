@@ -48,6 +48,13 @@
           <q-item-section>Categories</q-item-section>
         </q-item>
 
+        <q-item clickable v-ripple to="/products">
+          <q-item-section avatar>
+            <q-icon name="product" />
+          </q-item-section>
+          <q-item-section>Products</q-item-section>
+        </q-item>
+
       </q-list>
     </q-drawer>
 

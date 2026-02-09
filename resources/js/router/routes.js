@@ -43,7 +43,22 @@ const routes = [
                 path: 'categories/:uuid/edit', 
                 name: 'CategoryEdit',
                 component: () => import('pages/admin/categories/CategoryForm.vue')
-            }
+            },
+            { 
+                path: 'products', 
+                name: 'ProductList',
+                component: () => import('pages/admin/products/ProductList.vue')
+            },
+            { 
+                path: 'products/create', 
+                name: 'ProductCreate',
+                component: () => import('pages/admin/products/ProductCreate.vue')
+            },
+            { 
+                path: 'products/:uuid/edit', 
+                name: 'ProductEdit',
+                component: () => import('pages/admin/products/ProductEdit.vue')
+            },
         ]
     },
     {

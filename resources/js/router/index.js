@@ -51,6 +51,33 @@ const routes = [
         }
     },
     {
+        path: '/products',
+        name: 'ProductList',
+        component: () => import('../pages/admin/products/ProductList.vue'),
+        meta: { 
+            requiresAuth: true,
+            layout: 'admin'
+        }
+    },
+    {
+        path: '/products/create',
+        name: 'ProductCreate',
+        component: () => import('../pages/admin/products/ProductCreate.vue'),
+        meta: { 
+            requiresAuth: true,
+            layout: 'admin'
+        }
+    },
+        {
+        path: '/products/:uuid/edit',
+        name: 'ProductEdit',
+        component: () => import('../pages/admin/products/ProductEdit.vue'),
+        meta: { 
+            requiresAuth: true,
+            layout: 'admin'
+        }
+    },
+    {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',
         component: () => import('../pages/ErrorNotFound.vue'),
