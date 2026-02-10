@@ -56,8 +56,8 @@ class CategoryController extends Controller
             'status' => $category->status,
             'sort_order' => $category->sort_order,
             'featured_order' => $category->featured_order,
-            'children_count' => $category->children_count, // ✅
-            'has_children' => $category->children_count > 0, // ✅
+            'children_count' => $category->children_count, 
+            'has_children' => $category->children_count > 0, 
             'created_at' => $category->created_at,
         ])
     );
@@ -215,17 +215,14 @@ class CategoryController extends Controller
         $data['slug_status'] = $request->boolean('slug_status', true);
         $data['parent_id'] = $request->parent_id;
 
-        // Generate base slug
         if ($data['slug_status']) {
             $baseSlug = Str::slug($request->name);
         } else {
             $baseSlug = $request->slug;
         }
 
-        // Generate unique slug (without hierarchy)
         $data['slug'] = $this->generateUniqueSlug($baseSlug, $data['parent_id']);
 
-        // Generate hierarchical slug URL
         $data['slug_url'] = $this->generateSlugUrl($data['slug'], $data['parent_id']);
 
         $this->handleImages($request, $data);
@@ -255,14 +252,12 @@ class CategoryController extends Controller
         $data['slug_status'] = $request->boolean('slug_status', true);
         $data['parent_id'] = $request->parent_id;
 
-        // Prevent circular parent relationship
         if ($data['parent_id'] && $this->wouldCreateCircular($category->id, $data['parent_id'])) {
             return response()->json([
                 'message' => 'Cannot set parent: would create circular reference'
             ], 422);
         }
 
-        // Generate slug if changed
         $slugChanged = false;
         if ($data['slug_status']) {
             $newBaseSlug = Str::slug($request->name);
@@ -270,7 +265,6 @@ class CategoryController extends Controller
             $newBaseSlug = $request->slug;
         }
 
-        // Check if slug or parent changed
         if ($newBaseSlug !== $category->slug || $data['parent_id'] !== $category->parent_id) {
             $data['slug'] = $this->generateUniqueSlug($newBaseSlug, $data['parent_id'], $category->id);
             $data['slug_url'] = $this->generateSlugUrl($data['slug'], $data['parent_id']);
@@ -287,7 +281,6 @@ class CategoryController extends Controller
 
         $category->update($data);
 
-        // If slug_url changed, update all children's slug_url
         if ($slugChanged && $category->children()->count() > 0) {
             $this->updateChildrenSlugUrls($category);
         }
@@ -339,7 +332,6 @@ class CategoryController extends Controller
         while (true) {
             $query = Category::where('slug', $baseSlug);
             
-            // Only check uniqueness within same parent level
             if ($parentId) {
                 $query->where('parent_id', $parentId);
             } else {
@@ -362,17 +354,14 @@ class CategoryController extends Controller
     private function generateSlugUrl($slug, $parentId = null)
     {
         if (!$parentId) {
-            // Root level category
             return $slug;
         }
 
-        // Get parent category
+
         $parent = Category::find($parentId);
         if (!$parent) {
             return $slug;
         }
-
-        // Build hierarchical path
         return $parent->slug_url . '/' . $slug;
     }
 
@@ -384,7 +373,7 @@ class CategoryController extends Controller
             $newSlugUrl = $category->slug_url . '/' . $child->slug;
             $child->update(['slug_url' => $newSlugUrl]);
 
-            // Recursively update grandchildren
+
             if ($child->children()->count() > 0) {
                 $this->updateChildrenSlugUrls($child);
             }
@@ -416,7 +405,6 @@ class CategoryController extends Controller
     ) {
         $manager = new ImageManager(new Driver());
 
-        // FEATURED IMAGE
         if ($request->hasFile("featured_image")) {
             $this->deleteOldImage($category?->featured_image);
 
@@ -434,7 +422,6 @@ class CategoryController extends Controller
             );
         }
 
-        // BANNER IMAGE
         if ($request->hasFile("banner_image")) {
             $this->deleteOldImage($category?->banner_image);
 
@@ -462,7 +449,6 @@ class CategoryController extends Controller
 
         $meta = $this->parseMeta($meta);
 
-        // Crop if meta exists
         if ($meta && isset($meta["width"], $meta["height"])) {
             $image->crop(
                 $meta["width"],
@@ -472,10 +458,9 @@ class CategoryController extends Controller
             );
         }
 
-        // Optional resize (max width safety)
+
         $image->scaleDown(width: 1600);
 
-        // Encode (use webp if you want)
         $encoded = $image->toJpeg(quality: 85);
 
         $filename = $path . "/" . uniqid() . ".jpg";
