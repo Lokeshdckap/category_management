@@ -13,18 +13,13 @@ return new class extends Migration
     {
         Schema::create('product_bundle', function (Blueprint $table) {
             $table->id();
-              // The bundle product (parent)
             $table->foreignId('bundle_id')
                   ->constrained('products')
                   ->onDelete('cascade');
-            
-            // The standard product that is part of the bundle (child)
             $table->foreignId('product_id')
                   ->constrained('products')
                   ->onDelete('cascade');
-            
-            // Bundle-specific data
-            $table->integer('quantity')->default(1); // Quantity of this product in the bundle
+            $table->integer('quantity')->default(1); 
             $table->decimal('price', 10, 2)->default(0); 
             $table->timestamps();
 
