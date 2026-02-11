@@ -78,6 +78,15 @@ const routes = [
         }
     },
     {
+        path: '/supplier/create',
+        name: 'SupplierCreate',
+        component: () => import('../pages/admin/suppliers/SupplierForm.vue'),
+        meta: { 
+            requiresAuth: true,
+            layout: 'admin'
+        }
+    },
+    {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',
         component: () => import('../pages/ErrorNotFound.vue'),

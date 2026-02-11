@@ -330,6 +330,7 @@ const form = ref({
   featured: false,
   status: true,
   slug_status: true, // Auto slug enabled by default
+  slug_url:'',
 
   featured_image: null,
   banner_image: null,
@@ -355,15 +356,19 @@ const bannerPreview = ref(null)
 
 const urlPreview = computed(() => {
   const baseUrl = window.location.origin
+
+
+  console.log(form.value,"kkkk");
+  
   
   if (form.value.parent_id) {
     const parent = parentOptions.value.find(p => p.id === form.value.parent_id)
     if (parent && parent.slug_url) {
-      return `${baseUrl}/${parent.slug_url}/${form.value.slug}`
+      return `${baseUrl}/${parent.slug_url}/${form.value.slug_url}`
     }
   }
   
-  return `${baseUrl}/${form.value.slug}`
+  return `${baseUrl}/${form.value.slug_url}`
 })
 
 // Auto-generate slug when name or parent changes (only if auto slug is enabled)
@@ -480,7 +485,6 @@ async function submitForm () {
     let response
 
     if (isEdit.value) {
-      // ✅ METHOD SPOOFING (REQUIRED)
       fd.append('_method', 'PUT')
 
       response = await axios.post(
@@ -548,6 +552,7 @@ onMounted(async () => {
         featured: !!data.featured,
         status: data.status !== undefined ? !!data.status : true,
         slug_status: data.slug_status !== undefined ? !!data.slug_status : true,
+        slug_url : data.slug_url ? data.slug_url  : '',
         meta_title: data.meta_title || '',
         meta_description: data.meta_description || '',
         featured_image_meta: data.featured_image_meta || { alt: '', title: '', caption: '' },

@@ -15,6 +15,8 @@
           label="Add New Product"
           icon="add"
           @click="navigateToCreate"
+
+          
         />
       </div>
 
@@ -77,7 +79,7 @@
               </q-select>
             </div>
 
-            <!-- Reset Filters -->
+
             <div class="col-12 col-md-2">
               <q-btn
                 outline
@@ -92,7 +94,6 @@
         </q-card-section>
       </q-card>
 
-      <!-- Products Table -->
       <q-card flat bordered>
         <q-table
           :rows="products"
@@ -124,10 +125,9 @@
             </q-tr>
           </template>
 
-          <!-- Body -->
           <template v-slot:body="props">
             <q-tr :props="props">
-              <!-- Image -->
+        
               <q-td key="image" :props="props">
                 <q-avatar size="60px" rounded>
                   <img
@@ -139,21 +139,21 @@
                 </q-avatar>
               </q-td>
 
-              <!-- ID -->
+         
               <q-td key="id" :props="props">
                 <div class="text-grey-8 text-weight-medium">
                   #{{ props.row.id }}
                 </div>
               </q-td>
 
-              <!-- SKU -->
+  
               <q-td key="sku" :props="props">
                 <div class="text-primary text-weight-medium">
                   {{ props.row.sku }}
                 </div>
               </q-td>
 
-              <!-- Name -->
+              
               <q-td key="name" :props="props">
                 <div class="text-grey-9 text-weight-bold">
                   {{ props.row.name }}
@@ -164,14 +164,12 @@
                 </div>
               </q-td>
 
-              <!-- Short Description -->
               <q-td key="short_description" :props="props">
                 <div class="text-grey-7 ellipsis-2-lines" style="max-width: 300px">
                   {{ props.row.short_description || 'No description' }}
                 </div>
               </q-td>
 
-              <!-- Status -->
               <q-td key="status" :props="props">
                 <q-badge
                   :color="getStatusColor(props.row.status)"
@@ -179,14 +177,13 @@
                 />
               </q-td>
 
-              <!-- Created At -->
+    
               <q-td key="created_at" :props="props">
                 <div class="text-grey-7">
                   {{ formatDate(props.row.created_at) }}
                 </div>
               </q-td>
 
-              <!-- Actions -->
               <q-td key="actions" :props="props">
                 <div class="row q-gutter-xs no-wrap">
                   <q-btn
@@ -213,7 +210,7 @@
                     <q-tooltip>View</q-tooltip>
                   </q-btn>
 
-                  <q-btn
+                  <!-- <q-btn
                     flat
                     dense
                     round
@@ -223,13 +220,12 @@
                     @click="confirmDelete(props.row)"
                   >
                     <q-tooltip>Delete</q-tooltip>
-                  </q-btn>
+                  </q-btn> -->
                 </div>
               </q-td>
             </q-tr>
           </template>
 
-          <!-- No Data -->
           <template v-slot:no-data>
             <div class="full-width row flex-center q-gutter-sm q-pa-lg">
               <q-icon name="inventory_2" size="50px" color="grey-5" />
@@ -245,7 +241,6 @@
       </q-card>
     </div>
 
-    <!-- View Product Dialog -->
     <q-dialog v-model="viewDialog" position="right" maximized>
       <q-card style="width: 500px; max-width: 80vw">
         <q-bar class="bg-primary text-white">
@@ -256,7 +251,7 @@
         </q-bar>
 
         <q-card-section v-if="selectedProduct">
-          <!-- Product Images -->
+
           <div v-if="selectedProduct.images && selectedProduct.images.length > 0" class="q-mb-md">
             <q-carousel
               v-model="imageSlide"
@@ -276,15 +271,13 @@
             </q-carousel>
           </div>
 
-          <!-- Product Info -->
           <div class="q-gutter-md">
-            <!-- Name -->
+
             <div>
               <div class="text-caption text-grey-6">Product Name</div>
               <div class="text-h6 text-grey-9">{{ selectedProduct.name }}</div>
             </div>
 
-            <!-- SKU -->
             <div>
               <div class="text-caption text-grey-6">SKU</div>
               <div class="text-body1 text-primary text-weight-medium">
@@ -292,7 +285,7 @@
               </div>
             </div>
 
-            <!-- Status -->
+
             <div v-if="selectedProduct.status">
               <div class="text-caption text-grey-6">Status</div>
               <q-badge
@@ -301,7 +294,7 @@
               />
             </div>
 
-            <!-- Short Description -->
+
             <div v-if="selectedProduct.short_description">
               <div class="text-caption text-grey-6">Short Description</div>
               <div class="text-body2 text-grey-8">
@@ -309,7 +302,6 @@
               </div>
             </div>
 
-            <!-- Description -->
             <div v-if="selectedProduct.description">
               <div class="text-caption text-grey-6">Description</div>
               <div
@@ -318,7 +310,6 @@
               ></div>
             </div>
 
-            <!-- Categories -->
             <div v-if="selectedProduct.categories && selectedProduct.categories.length > 0">
               <div class="text-caption text-grey-6 q-mb-sm">Categories</div>
               <div class="row q-gutter-xs">
@@ -335,7 +326,6 @@
               </div>
             </div>
 
-            <!-- SEO -->
             <div v-if="selectedProduct.meta_title || selectedProduct.slug">
               <div class="text-caption text-grey-6 q-mb-sm">SEO Information</div>
               <q-list bordered>
@@ -360,7 +350,7 @@
               </q-list>
             </div>
 
-            <!-- Created/Updated -->
+
             <div class="row q-gutter-md">
               <div>
                 <div class="text-caption text-grey-6">Created</div>
@@ -390,6 +380,40 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+
+    <q-dialog v-model="typeDialog">
+  <q-card style="min-width: 320px">
+    
+    <q-card-section class="text-h6">
+      Select Product Type
+    </q-card-section>
+
+    <q-card-section>
+      <q-select
+        v-model="selectedType"
+        :options="productTypes"
+        label="Product Type"
+        outlined
+        dense
+        emit-value
+        map-options
+      />
+    </q-card-section>
+
+    <q-card-actions align="right">
+      <q-btn flat label="Cancel" color="grey" v-close-popup />
+      <q-btn
+        label="Submit"
+        color="primary"
+        :disable="!selectedType"
+        @click="submitType"
+      />
+    </q-card-actions>
+
+  </q-card>
+</q-dialog>
+
   </q-page>
 </template>
 
@@ -427,6 +451,14 @@ export default {
       rowsPerPage: 10,
       rowsNumber: 0
     })
+
+    const typeDialog = ref(false)
+const selectedType = ref(null)
+
+const productTypes = [
+  { label: 'Standard', value: 'standard' },
+  { label: 'Bundle', value: 'bundle' }
+]
 
     const categoryOptions = ref([])
     const statusOptions = ref([
@@ -471,13 +503,13 @@ export default {
         align: 'left',
         sortable: false
       },
-      {
-        name: 'status',
-        label: 'Status',
-        field: 'status',
-        align: 'center',
-        sortable: true
-      },
+      // {
+      //   name: 'status',
+      //   label: 'Status',
+      //   field: 'status',
+      //   align: 'center',
+      //   sortable: true
+      // },
       {
         name: 'created_at',
         label: 'Created',
@@ -493,7 +525,6 @@ export default {
       }
     ]
 
-    // API Methods
     const fetchProducts = async () => {
       try {
         loading.value = true
@@ -506,7 +537,6 @@ export default {
           ...filters.value
         }
 
-        // Remove null/empty values
         Object.keys(params).forEach(key => {
           if (params[key] === null || params[key] === '') {
             delete params[key]
@@ -515,13 +545,10 @@ export default {
 
         const response = await axios.get('/admin/products', { params })
 
-        // Handle both paginated and non-paginated responses
         if (response.data.data.data) {
-          // Paginated response
           products.value = response.data.data.data
           pagination.value.rowsNumber = response.data.data.total
         } else {
-          // Non-paginated response
           products.value = response.data.data
         }
 
@@ -542,7 +569,6 @@ export default {
       try {
         const response = await axios.get('/admin/categories')
         
-        // Build flat category options
         categoryOptions.value = response.data.data.map(cat => ({
           label: cat.name,
           value: cat.id
@@ -578,7 +604,6 @@ export default {
       fetchProducts()
     }
 
-    // View Product
     const viewProduct = async (product) => {
       try {
         loading.value = true
@@ -599,16 +624,28 @@ export default {
       }
     }
 
-    // Navigation
     const navigateToCreate = () => {
-      router.push('/products/create')
+
+      typeDialog.value = true
+      
+
+      
     }
+
+    const submitType = () => {
+  console.log('Selected type:', selectedType.value)
+
+     if(selectedType.value){
+      router.push(`/products/create?type=${selectedType.value}`)
+      typeDialog.value = false
+     }
+
+}
 
     const navigateToEdit = (product) => {
       router.push(`/products/${product.uuid}/edit`)
     }
 
-    // Delete Product
     const confirmDelete = (product) => {
       $q.dialog({
         title: 'Confirm Delete',
@@ -642,7 +679,6 @@ export default {
           position: 'top'
         })
 
-        // Refresh the list
         await fetchProducts()
       } catch (error) {
         console.error('Error deleting product:', error)
@@ -657,7 +693,6 @@ export default {
       }
     }
 
-    // Helper Methods
     const getStatusColor = (status) => {
       const colors = {
         active: 'positive',
@@ -677,7 +712,6 @@ export default {
       return date.formatDate(dateString, 'MMM DD, YYYY HH:mm')
     }
 
-    // Lifecycle
     onMounted(async () => {
       await Promise.all([
         fetchProducts(),
@@ -706,7 +740,11 @@ export default {
       confirmDelete,
       getStatusColor,
       getStatusLabel,
-      formatDate
+      formatDate,
+      selectedType,
+      productTypes,
+      typeDialog,
+      submitType
     }
   }
 }
@@ -714,7 +752,6 @@ export default {
 
 <style scoped>
 .products-table {
-  /* Custom table styles */
 }
 
 .ellipsis-2-lines {

@@ -55,6 +55,11 @@ const routes = [
                 component: () => import('pages/admin/products/ProductCreate.vue')
             },
             { 
+                path: 'suppliers/create', 
+                name: 'SupplierCreate',
+                component: () => import('pages/admin/suppliers/SupplierForm.vue')
+            },
+            { 
                 path: 'products/:uuid/edit', 
                 name: 'ProductEdit',
                 component: () => import('pages/admin/products/ProductEdit.vue')

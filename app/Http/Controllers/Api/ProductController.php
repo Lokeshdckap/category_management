@@ -12,12 +12,17 @@ use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
-    /**
-     * Display a listing of products.
-     */
+
     public function index(Request $request)
     {
         $query = Product::query();
+
+        if($request->filled('exclude_uuid')){
+            $query->where('uuid','!=',$request->exclude_uuid);
+        }
+        if ($request->has('type')) {
+            $query->where('type', $request->type);
+        }
 
         if ($request->has('search') && !empty($request->search)) {
             $search = $request->search;
@@ -28,13 +33,11 @@ class ProductController extends Controller
             });
         }
 
-
         if ($request->has('category_id')) {
             $query->whereHas('categories', function($q) use ($request) {
                 $q->where('category_id', $request->category_id);
             });
         }
-
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -57,8 +60,7 @@ class ProductController extends Controller
                 return $product;
             });
         } else {
-
-            $products = $query->select(['id', 'name', 'sku'])
+            $products = $query->select(['id','uuid', 'name', 'sku', 'type','price','total_price'])
                               ->get();
         }
 
@@ -67,13 +69,11 @@ class ProductController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created product.
-     */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $rules = [
             "name" => "required|string|max:255",
+            'type' => 'required|in:standard,bundle',
             "sku" => "required|string|max:100|unique:products,sku",
             "short_description" => "nullable|string|max:500",
             "description" => "nullable|string",
@@ -94,7 +94,22 @@ class ProductController extends Controller
             "images.*.alt" => "nullable|string|max:255",
             "images.*.title" => "nullable|string|max:255",
             "images.*.caption" => "nullable|string|max:255",
-        ]);
+        ];
+
+        if ($request->type === 'standard') {
+            $rules['price'] = 'required|numeric|min:0';
+            $rules['gp_percentage'] = 'required|numeric|min:0|max:100';
+        }
+
+        if ($request->type === 'bundle') {
+            $rules['bundle_products'] = 'required|array|min:1';
+            $rules['bundle_products.*.id'] = 'required|exists:products,id';
+            $rules['bundle_products.*.price'] = 'required|numeric|min:0';
+            $rules['bundle_products.*.qty'] = 'required|integer|min:1';
+            $rules['bundle_gp_percentage'] = 'required|numeric|min:0|max:100';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -103,7 +118,24 @@ class ProductController extends Controller
             ], 422);
         }
 
+        if ($request->type === 'bundle') {
+            $bundleProductIds = collect($request->bundle_products)->pluck('id')->toArray();
+            $nonStandardProducts = Product::whereIn('id', $bundleProductIds)
+                ->where('type', '!=', 'standard')
+                ->exists();
+
+            if ($nonStandardProducts) {
+                return response()->json([
+                    "message" => "Validation failed",
+                    "errors" => [
+                        "bundle_products" => ["Only standard products can be added to a bundle"]
+                    ]
+                ], 422);
+            }
+        }
+
         try {
+
             $slug = $request->slug ?? Str::slug($request->name);
             
             $originalSlug = $slug;
@@ -113,8 +145,9 @@ class ProductController extends Controller
                 $counter++;
             }
 
-            $product = Product::create([
+            $productData = [
                 "name" => $request->name,
+                "type" => $request->type,
                 "sku" => $request->sku,
                 "short_description" => $request->short_description,
                 "description" => $request->description,
@@ -122,7 +155,35 @@ class ProductController extends Controller
                 "slug" => $slug,
                 "meta_title" => $request->meta_title ?? $request->name,
                 "meta_description" => $request->meta_description ?? $request->short_description,
-            ]);
+            ];
+
+            if ($request->type === 'standard') {
+                $basePrice = $request->price;
+                $gpPercentage = $request->gp_percentage;
+                
+                $totalPrice = $basePrice + ($basePrice * $gpPercentage / 100);
+                
+                $productData['price'] = $basePrice;
+                $productData['gp_percentage'] = $gpPercentage;
+                $productData['total_price'] = $totalPrice;
+            }
+
+            if ($request->type === 'bundle') {
+                $subtotal = 0;
+                foreach ($request->bundle_products as $item) {
+                    $subtotal += ($item['price'] * $item['qty']);
+                }
+                
+                $bundleGpPercentage = $request->bundle_gp_percentage;
+                
+                $finalBundlePrice = $subtotal + ($subtotal * $bundleGpPercentage / 100);
+                
+                $productData['bundle_subtotal'] = $subtotal;
+                $productData['bundle_gp_percentage'] = $bundleGpPercentage;
+                $productData['bundle_final_price'] = $finalBundlePrice;
+            }
+
+            $product = Product::create($productData);
 
             $product->categories()->sync($request->categories);
 
@@ -130,12 +191,23 @@ class ProductController extends Controller
                 $product->compatibleProducts()->sync($request->compatible_products);
             }
 
+            if ($request->type === 'bundle' && $request->has('bundle_products')) {
+                $bundleData = [];
+                foreach ($request->bundle_products as $bundleItem) {
+                    $bundleData[$bundleItem['id']] = [
+                        'quantity' => $bundleItem['qty'],
+                        'price' => $bundleItem['price'],
+                    ];
+                }
+                
+                $product->bundleProducts()->sync($bundleData);
+            }
+
             if ($request->has("images")) {
                 foreach ($request->images as $index => $imageData) {
                     if (isset($imageData['file'])) {
                         $path = $imageData['file']->store('products', 'public');
 
-                        // Create image record
                         $product->images()->create([
                             "image_path" => $path,
                             "alt" => $imageData["alt"] ?? null,
@@ -147,14 +219,20 @@ class ProductController extends Controller
                 }
             }
 
-            $product->load(['categories', 'defaultCategory', 'compatibleProducts', 'images']);
+            $product->load([
+                'categories', 
+                'defaultCategory', 
+                'compatibleProducts', 
+                'bundleProducts',
+                'images'
+            ]);
 
             return response()->json([
                 "message" => "Product created successfully",
                 "data" => $product
             ], 201);
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             
             return response()->json([
                 "message" => "Failed to create product",
@@ -162,35 +240,50 @@ class ProductController extends Controller
             ], 500);
         }
     }
-
-    /**
-     * Display the specified product.
-     */
+    
     public function show($uuid)
     {
         $product = Product::with([
             'categories',
             'defaultCategory',
             'compatibleProducts',
+            'bundleProducts' => function($query) {
+                $query->select('products.id', 'products.uuid', 'products.name', 'products.sku', 'products.type');
+            },
             'images' => function($query) {
                 $query->orderBy('sort_order');
             }
         ])->where('uuid', $uuid)->firstOrFail();
+
+        if ($product->type === 'bundle' && $product->bundleProducts) {
+            $product->bundleProducts->transform(function($bundleProduct) {
+                $itemTotal = $bundleProduct->pivot->price * $bundleProduct->pivot->quantity;
+                
+                return [
+                    'id' => $bundleProduct->id,
+                    'uuid' => $bundleProduct->uuid,
+                    'name' => $bundleProduct->name,
+                    'sku' => $bundleProduct->sku,
+                    'type' => $bundleProduct->type,
+                    'quantity' => $bundleProduct->pivot->quantity,
+                    'price' => $bundleProduct->pivot->price,
+                    'total' => $itemTotal,
+                ];
+            });
+        }
 
         return response()->json([
             'data' => $product
         ]);
     }
 
-    /**
-     * Show the form for editing the specified product.
-     */
     public function edit($uuid)
     {
         $product = Product::with([
             'categories',
             'defaultCategory',
             'compatibleProducts',
+            'bundleProducts',
             'images' => function($query) {
                 $query->orderBy('sort_order');
             }
@@ -199,16 +292,18 @@ class ProductController extends Controller
         $data = [
             'id' => $product->id,
             'uuid' => $product->uuid,
+            'type' => $product->type,
             'name' => $product->name,
             'sku' => $product->sku,
             'slug' => $product->slug,
+            'slug_url' => $product->slug_url,
             'short_description' => $product->short_description,
             'description' => $product->description,
             'meta_title' => $product->meta_title,
             'meta_description' => $product->meta_description,
             'default_category_id' => $product->default_category_id,
             'categories' => $product->categories->pluck('id')->toArray(),
-            'compatible_products' => $product->compatibleProducts->pluck('id')->toArray(),
+            'compatible_products' => $product->compatibleProducts,
             'images' => $product->images->map(function($image) {
                 return [
                     'id' => $image->id,
@@ -221,20 +316,42 @@ class ProductController extends Controller
             }),
         ];
 
+        if ($product->type === 'standard') {
+            $data['price'] = $product->price;
+            $data['gp_percentage'] = $product->gp_percentage;
+            $data['total_price'] = $product->total_price;
+        }
+
+        if ($product->type === 'bundle' && $product->bundleProducts) {
+            $data['bundle_products'] = $product->bundleProducts->map(function($bundleProduct) {
+                return [
+                    'id' => $bundleProduct->id,
+                    'uuid' => $bundleProduct->uuid,
+                    'name' => $bundleProduct->name,
+                    'sku' => $bundleProduct->sku,
+                    'qty' => $bundleProduct->pivot->quantity,
+                    'price' => $bundleProduct->pivot->price,
+                    'total' => $bundleProduct->pivot->price * $bundleProduct->pivot->quantity,
+                ];
+            })->toArray();
+            
+            $data['bundle_gp_percentage'] = $product->bundle_gp_percentage;
+            $data['bundle_subtotal'] = $product->bundle_subtotal;
+            $data['bundle_final_price'] = $product->bundle_final_price;
+        }
+
         return response()->json([
             'data' => $data
         ]);
     }
 
-    /**
-     * Update the specified product.
-     */
     public function update(Request $request, $uuid)
     {
         $product = Product::where('uuid', $uuid)->firstOrFail();
 
-        $validator = Validator::make($request->all(), [
+        $rules = [
             "name" => "required|string|max:255",
+            "type" => "required|in:standard,bundle",
             "sku" => "required|string|max:100|unique:products,sku," . $product->id,
             "short_description" => "nullable|string|max:500",
             "description" => "nullable|string",
@@ -255,10 +372,31 @@ class ProductController extends Controller
             "images.*.alt" => "nullable|string|max:255",
             "images.*.title" => "nullable|string|max:255",
             "images.*.caption" => "nullable|string|max:255",
-            
+
+            "existing_images" => "nullable|array",
+            "existing_images.*.id" => "required|exists:product_images,id",
+            "existing_images.*.alt" => "nullable|string|max:255",
+            "existing_images.*.title" => "nullable|string|max:255",
+            "existing_images.*.caption" => "nullable|string|max:255",
+                        
             "deleted_images" => "nullable|array",
             "deleted_images.*" => "exists:product_images,id",
-        ]);
+        ];
+
+        if ($request->type === 'standard') {
+            $rules['price'] = 'required|numeric|min:0';
+            $rules['gp_percentage'] = 'required|numeric|min:0|max:100';
+        }
+
+        if ($request->type === 'bundle') {
+            $rules['bundle_products'] = 'required|array|min:1';
+            $rules['bundle_products.*.id'] = 'required|exists:products,id';
+            $rules['bundle_products.*.price'] = 'required|numeric|min:0';
+            $rules['bundle_products.*.qty'] = 'required|integer|min:1';
+            $rules['bundle_gp_percentage'] = 'required|numeric|min:0|max:100';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -267,8 +405,23 @@ class ProductController extends Controller
             ], 422);
         }
 
-        try {
+        if ($request->type === 'bundle') {
+            $bundleProductIds = collect($request->bundle_products)->pluck('id')->toArray();
+            $nonStandardProducts = Product::whereIn('id', $bundleProductIds)
+                ->where('type', '!=', 'standard')
+                ->exists();
 
+            if ($nonStandardProducts) {
+                return response()->json([
+                    "message" => "Validation failed",
+                    "errors" => [
+                        "bundle_products" => ["Only standard products can be added to a bundle"]
+                    ]
+                ], 422);
+            }
+        }
+
+        try {
             $slug = $request->slug ?? Str::slug($request->name);
             
             $originalSlug = $slug;
@@ -278,8 +431,9 @@ class ProductController extends Controller
                 $counter++;
             }
 
-            $product->update([
+            $productData = [
                 "name" => $request->name,
+                "type" => $request->type,
                 "sku" => $request->sku,
                 "short_description" => $request->short_description,
                 "description" => $request->description,
@@ -287,14 +441,64 @@ class ProductController extends Controller
                 "slug" => $slug,
                 "meta_title" => $request->meta_title ?? $request->name,
                 "meta_description" => $request->meta_description ?? $request->short_description,
-            ]);
+            ];
 
+            if ($request->type === 'standard') {
+                $basePrice = $request->price;
+                $gpPercentage = $request->gp_percentage;
+                
+                $totalPrice = $basePrice + ($basePrice * $gpPercentage / 100);
+                
+                $productData['price'] = $basePrice;
+                $productData['gp_percentage'] = $gpPercentage;
+                $productData['total_price'] = $totalPrice;
+
+                if ($product->type === 'bundle') {
+                    $productData['bundle_subtotal'] = null;
+                    $productData['bundle_gp_percentage'] = null;
+                    $productData['bundle_final_price'] = null;
+                    $product->bundleProducts()->detach();
+                }
+            } else {
+            
+                $subtotal = 0;
+                foreach ($request->bundle_products as $item) {
+                    $subtotal += ($item['price'] * $item['qty']);
+                }
+                
+                $bundleGpPercentage = $request->bundle_gp_percentage;
+                
+                $finalBundlePrice = $subtotal + ($subtotal * $bundleGpPercentage / 100);
+                
+                $productData['bundle_subtotal'] = $subtotal;
+                $productData['bundle_gp_percentage'] = $bundleGpPercentage;
+                $productData['bundle_final_price'] = $finalBundlePrice;
+
+                if ($product->type === 'standard') {
+                    $productData['price'] = null;
+                    $productData['gp_percentage'] = null;
+                    $productData['total_price'] = null;
+                }
+            }
+
+            $product->update($productData);
 
             $product->categories()->sync($request->categories);
 
-
             $product->compatibleProducts()->sync($request->compatible_products ?? []);
 
+            if ($request->type === 'bundle' && $request->has('bundle_products')) {
+                $bundleData = [];
+                foreach ($request->bundle_products as $bundleItem) {
+                    $bundleData[$bundleItem['id']] = [
+                        'quantity' => $bundleItem['qty'],
+                        'price' => $bundleItem['price'],
+                    ];
+                }
+                $product->bundleProducts()->sync($bundleData);
+            } elseif ($request->type === 'standard') {
+                $product->bundleProducts()->detach();
+            }
 
             if ($request->has('deleted_images')) {
                 foreach ($request->deleted_images as $imageId) {
@@ -306,32 +510,51 @@ class ProductController extends Controller
                 }
             }
 
-            if ($request->has("images")) {
-                $maxSortOrder = $product->images()->max('sort_order') ?? 0;
-                
-                foreach ($request->images as $index => $imageData) {
-                    if (isset($imageData['file'])) {
-                        $path = $imageData['file']->store('products', 'public');
-
-                        $product->images()->create([
-                            "image_path" => $path,
-                            "alt" => $imageData["alt"] ?? null,
-                            "title" => $imageData["title"] ?? null,
-                            "caption" => $imageData["caption"] ?? null,
-                            "sort_order" => $maxSortOrder + $index + 1,
+            if ($request->has('existing_images')) {
+                foreach ($request->existing_images as $img) {
+                    $image = $product->images()->find($img['id']);
+                    if ($image) {
+                        $image->update([
+                            'alt' => $img['alt'] ?? $image->alt,
+                            'title' => $img['title'] ?? $image->title,
+                            'caption' => $img['caption'] ?? $image->caption,
                         ]);
                     }
                 }
             }
 
-            $product->load(['categories', 'defaultCategory', 'compatibleProducts', 'images']);
+            if ($request->has('images')) {
+                $maxSortOrder = $product->images()->max('sort_order') ?? 0;
+
+                foreach ($request->images as $index => $imageData) {
+                    if (isset($imageData['file'])) {
+                        $path = $imageData['file']->store('products', 'public');
+
+                        $product->images()->create([
+                            'image_path' => $path,
+                            'alt' => $imageData['alt'] ?? null,
+                            'title' => $imageData['title'] ?? null,
+                            'caption' => $imageData['caption'] ?? null,
+                            'sort_order' => $maxSortOrder + $index + 1,
+                        ]);
+                    }
+                }
+            }
+
+            $product->load([
+                'categories', 
+                'defaultCategory', 
+                'compatibleProducts', 
+                'bundleProducts',
+                'images'
+            ]);
 
             return response()->json([
                 "message" => "Product updated successfully",
                 "data" => $product
             ]);
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             
             return response()->json([
                 "message" => "Failed to update product",
@@ -340,17 +563,19 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * Remove the specified product.
-     */
     public function destroy($uuid)
     {
         $product = Product::where('uuid', $uuid)->firstOrFail();
 
         try {
+
             foreach ($product->images as $image) {
                 Storage::disk('public')->delete($image->image_path);
             }
+
+            $product->categories()->detach();
+            $product->compatibleProducts()->detach();
+            $product->bundleProducts()->detach();
 
             $product->delete();
 
@@ -358,7 +583,7 @@ class ProductController extends Controller
                 "message" => "Product deleted successfully"
             ]);
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             
             return response()->json([
                 "message" => "Failed to delete product",

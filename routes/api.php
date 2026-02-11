@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\SupplierController;
+
 
 
 Route::post("/login", LoginController::class);
@@ -72,7 +74,8 @@ Route::middleware(["auth:sanctum", "role:admin"])
 
 
 
-
+        Route::post("/supplier", SupplierController::class);
+         
 
 
         Route::post("/logout", LogoutController::class);
