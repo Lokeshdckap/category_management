@@ -198,7 +198,7 @@
                     <q-tooltip>Edit</q-tooltip>
                   </q-btn>
 
-                  <q-btn
+                  <!-- <q-btn
                     flat
                     dense
                     round
@@ -208,7 +208,7 @@
                     @click="viewProduct(props.row)"
                   >
                     <q-tooltip>View</q-tooltip>
-                  </q-btn>
+                  </q-btn> -->
 
                   <!-- <q-btn
                     flat
