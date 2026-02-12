@@ -55,6 +55,11 @@ class Category extends Model
         return $this->hasMany(Category::class, 'parent_id');
     }
 
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'category_product');
+    }
+
     public function getFeaturedImageUrlAttribute()
     {
         return $this->featured_image 

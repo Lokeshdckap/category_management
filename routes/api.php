@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SupplierController;
+use App\Http\Controllers\Api\ProductReportController;
 
 
 
@@ -65,6 +66,8 @@ Route::middleware(["auth:sanctum", "role:admin"])
 
 
 
+        Route::patch("/products/{uuid}/status", [ProductController::class, "updateStatus"]);
+
         Route::put("/products/{uuid}", [ProductController::class, "update"]);
 
          Route::delete("/products/{uuid}", [
@@ -72,10 +75,13 @@ Route::middleware(["auth:sanctum", "role:admin"])
             "destroy",
         ]);
 
+        Route::get("/suppliers",[SupplierController::class,'index']);
+        Route::post("/suppliers", [SupplierController::class, 'store']);
+        Route::get("/suppliers/{id}", [SupplierController::class, 'show']);
+        Route::put("/suppliers/{id}", [SupplierController::class, 'update']);
+        Route::delete("/suppliers/{id}", [SupplierController::class, 'destroy']);
 
-
-        Route::post("/supplier", SupplierController::class);
-         
+        Route::get("/reports/products",[ProductReportController::class,'index']);
 
 
         Route::post("/logout", LogoutController::class);

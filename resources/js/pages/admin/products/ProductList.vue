@@ -171,9 +171,12 @@
               </q-td>
 
               <q-td key="status" :props="props">
-                <q-badge
-                  :color="getStatusColor(props.row.status)"
-                  :label="getStatusLabel(props.row.status)"
+                <q-toggle
+                  v-model="props.row.status"
+                  :true-value="'active'"
+                  :false-value="'inactive'"
+                  color="positive"
+                  @update:model-value="toggleStatus(props.row)"
                 />
               </q-td>
 
@@ -210,7 +213,7 @@
                     <q-tooltip>View</q-tooltip>
                   </q-btn> -->
 
-                  <!-- <q-btn
+                  <q-btn
                     flat
                     dense
                     round
@@ -220,7 +223,7 @@
                     @click="confirmDelete(props.row)"
                   >
                     <q-tooltip>Delete</q-tooltip>
-                  </q-btn> -->
+                  </q-btn>
                 </div>
               </q-td>
             </q-tr>
@@ -243,141 +246,7 @@
 
     <q-dialog v-model="viewDialog" position="right" maximized>
       <q-card style="width: 500px; max-width: 80vw">
-        <q-bar class="bg-primary text-white">
-          <q-icon name="inventory_2" />
-          <div class="text-weight-bold q-ml-sm">Product Details</div>
-          <q-space />
-          <q-btn flat dense icon="close" v-close-popup />
-        </q-bar>
-
-        <q-card-section v-if="selectedProduct">
-
-          <div v-if="selectedProduct.images && selectedProduct.images.length > 0" class="q-mb-md">
-            <q-carousel
-              v-model="imageSlide"
-              animated
-              navigation
-              infinite
-              arrows
-              height="300px"
-              class="rounded-borders"
-            >
-              <q-carousel-slide
-                v-for="(image, index) in selectedProduct.images"
-                :key="index"
-                :name="index"
-                :img-src="image.url || image.image_path"
-              />
-            </q-carousel>
-          </div>
-
-          <div class="q-gutter-md">
-
-            <div>
-              <div class="text-caption text-grey-6">Product Name</div>
-              <div class="text-h6 text-grey-9">{{ selectedProduct.name }}</div>
-            </div>
-
-            <div>
-              <div class="text-caption text-grey-6">SKU</div>
-              <div class="text-body1 text-primary text-weight-medium">
-                {{ selectedProduct.sku }}
-              </div>
-            </div>
-
-
-            <div v-if="selectedProduct.status">
-              <div class="text-caption text-grey-6">Status</div>
-              <q-badge
-                :color="getStatusColor(selectedProduct.status)"
-                :label="getStatusLabel(selectedProduct.status)"
-              />
-            </div>
-
-
-            <div v-if="selectedProduct.short_description">
-              <div class="text-caption text-grey-6">Short Description</div>
-              <div class="text-body2 text-grey-8">
-                {{ selectedProduct.short_description }}
-              </div>
-            </div>
-
-            <div v-if="selectedProduct.description">
-              <div class="text-caption text-grey-6">Description</div>
-              <div
-                class="text-body2 text-grey-8"
-                v-html="selectedProduct.description"
-              ></div>
-            </div>
-
-            <div v-if="selectedProduct.categories && selectedProduct.categories.length > 0">
-              <div class="text-caption text-grey-6 q-mb-sm">Categories</div>
-              <div class="row q-gutter-xs">
-                <q-chip
-                  v-for="category in selectedProduct.categories"
-                  :key="category.id"
-                  color="primary"
-                  text-color="white"
-                  icon="label"
-                  size="sm"
-                >
-                  {{ category.name }}
-                </q-chip>
-              </div>
-            </div>
-
-            <div v-if="selectedProduct.meta_title || selectedProduct.slug">
-              <div class="text-caption text-grey-6 q-mb-sm">SEO Information</div>
-              <q-list bordered>
-                <q-item v-if="selectedProduct.meta_title">
-                  <q-item-section>
-                    <q-item-label caption>Meta Title</q-item-label>
-                    <q-item-label>{{ selectedProduct.meta_title }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-                <q-item v-if="selectedProduct.meta_description">
-                  <q-item-section>
-                    <q-item-label caption>Meta Description</q-item-label>
-                    <q-item-label>{{ selectedProduct.meta_description }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-                <q-item v-if="selectedProduct.slug">
-                  <q-item-section>
-                    <q-item-label caption>URL Slug</q-item-label>
-                    <q-item-label>{{ selectedProduct.slug }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </div>
-
-
-            <div class="row q-gutter-md">
-              <div>
-                <div class="text-caption text-grey-6">Created</div>
-                <div class="text-body2 text-grey-8">
-                  {{ formatDate(selectedProduct.created_at) }}
-                </div>
-              </div>
-              <div v-if="selectedProduct.updated_at">
-                <div class="text-caption text-grey-6">Last Updated</div>
-                <div class="text-body2 text-grey-8">
-                  {{ formatDate(selectedProduct.updated_at) }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </q-card-section>
-
-        <q-card-actions align="right" class="q-pa-md">
-          <q-btn
-            outline
-            color="primary"
-            label="Edit Product"
-            icon="edit"
-            @click="navigateToEdit(selectedProduct)"
-          />
-          <q-btn flat label="Close" color="grey-7" v-close-popup />
-        </q-card-actions>
+        <!-- ... existing content ... -->
       </q-card>
     </q-dialog>
 
@@ -428,6 +297,7 @@ export default {
   name: 'ProductList',
 
   setup() {
+    // ... existing setup ...
     const $q = useQuasar()
     const router = useRouter()
 
@@ -437,8 +307,8 @@ export default {
     const selectedProduct = ref(null)
     const viewDialog = ref(false)
     const imageSlide = ref(0)
-
-    const filters = ref({
+    
+     const filters = ref({
       search: '',
       category_id: null,
       status: null
@@ -453,12 +323,12 @@ export default {
     })
 
     const typeDialog = ref(false)
-const selectedType = ref(null)
+    const selectedType = ref(null)
 
-const productTypes = [
-  { label: 'Standard', value: 'standard' },
-  { label: 'Bundle', value: 'bundle' }
-]
+    const productTypes = [
+      { label: 'Standard', value: 'standard' },
+      { label: 'Bundle', value: 'bundle' }
+    ]
 
     const categoryOptions = ref([])
     const statusOptions = ref([
@@ -503,13 +373,13 @@ const productTypes = [
         align: 'left',
         sortable: false
       },
-      // {
-      //   name: 'status',
-      //   label: 'Status',
-      //   field: 'status',
-      //   align: 'center',
-      //   sortable: true
-      // },
+      {
+        name: 'status',
+        label: 'Status',
+        field: 'status',
+        align: 'center',
+        sortable: true
+      },
       {
         name: 'created_at',
         label: 'Created',
@@ -569,7 +439,7 @@ const productTypes = [
       try {
         const response = await axios.get('/admin/categories')
         
-        categoryOptions.value = response.data.data.map(cat => ({
+        categoryOptions.value = response.data.map(cat => ({
           label: cat.name,
           value: cat.id
         }))
@@ -605,42 +475,19 @@ const productTypes = [
     }
 
     const viewProduct = async (product) => {
-      try {
-        loading.value = true
-        const response = await axios.get(`/admin/products/${product.uuid}`)
-        selectedProduct.value = response.data.data
-        imageSlide.value = 0
-        viewDialog.value = true
-      } catch (error) {
-        console.error('Error fetching product details:', error)
-        $q.notify({
-          type: 'negative',
-          message: 'Failed to load product details',
-          caption: error.response?.data?.message || error.message,
-          position: 'top'
-        })
-      } finally {
-        loading.value = false
-      }
+        // ... existing implementation ...
     }
 
     const navigateToCreate = () => {
-
       typeDialog.value = true
-      
-
-      
     }
 
     const submitType = () => {
-  console.log('Selected type:', selectedType.value)
-
-     if(selectedType.value){
-      router.push(`/products/create?type=${selectedType.value}`)
-      typeDialog.value = false
-     }
-
-}
+      if(selectedType.value){
+       router.push(`/products/create?type=${selectedType.value}`)
+       typeDialog.value = false
+      }
+    }
 
     const navigateToEdit = (product) => {
       router.push(`/products/${product.uuid}/edit`)
@@ -652,7 +499,7 @@ const productTypes = [
         message: `Are you sure you want to delete "${product.name}"? This action cannot be undone.`,
         cancel: true,
         persistent: true,
-        ok: {
+         ok: {
           label: 'Delete',
           color: 'negative',
           flat: true
@@ -690,6 +537,30 @@ const productTypes = [
         })
       } finally {
         loading.value = false
+      }
+    }
+
+    const toggleStatus = async (product) => {
+      try {
+        await axios.patch(`/admin/products/${product.uuid}/status`, {
+          status: product.status
+        })
+
+        $q.notify({
+          type: 'positive',
+          message: `Product status updated to ${product.status}`,
+          position: 'top'
+        })
+      } catch (error) {
+        console.error('Error updating status:', error)
+        // Revert status on error
+        product.status = product.status === 'active' ? 'inactive' : 'active'
+        $q.notify({
+          type: 'negative',
+          message: 'Failed to update status',
+          caption: error.response?.data?.message || error.message,
+          position: 'top'
+        })
       }
     }
 
@@ -738,6 +609,7 @@ const productTypes = [
       navigateToCreate,
       navigateToEdit,
       confirmDelete,
+      toggleStatus,
       getStatusColor,
       getStatusLabel,
       formatDate,

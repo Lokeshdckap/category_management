@@ -23,7 +23,6 @@
         </div>
       </div>
 
- 
       <q-inner-loading :showing="loading">
         <q-spinner-gears size="50px" color="primary" />
       </q-inner-loading>
@@ -41,29 +40,29 @@
           <q-tab name="basic" icon="info" label="Basic Info" />
           <q-tab name="categories" icon="category" label="Categories" />
           <q-tab name="compatible" icon="widgets" label="Compatible Products" />
-
           <q-tab v-if="product.type == 'standard'" name="price" icon="attach_money" label="Price" />
           <q-tab v-if="product.type == 'bundle'" name="bundle_and_price" icon="inventory" label="Bundle & Price" />
-
           <q-tab name="images" icon="image" label="Images" />
+          <q-tab name="suppliers" icon="local_shipping" label="Suppliers" />
           <q-tab name="seo" icon="search" label="SEO" />
         </q-tabs>
 
         <q-separator />
 
         <q-tab-panels v-model="tab" animated>
-   
+          <!-- Basic Info Tab -->
           <q-tab-panel name="basic">
             <div class="text-h6 q-mb-md">Basic Information</div>
 
             <div class="row q-col-gutter-md">
-              <div class="col-12 col-md-6">
+              <div class="col-12 col-md-4">
                 <q-input
                   v-model="product.name"
                   label="Product Name *"
                   outlined
                   dense
-                  :rules="[val => !!val || 'Product name is required']"
+                  :error="!!formErrors.name"
+                  :error-message="formErrors.name"
                   @blur="autoGenerateSlug"
                 >
                   <template v-slot:prepend>
@@ -72,18 +71,35 @@
                 </q-input>
               </div>
 
-              <div class="col-12 col-md-6">
+              <div class="col-12 col-md-4">
                 <q-input
                   v-model="product.sku"
                   label="SKU *"
                   outlined
                   dense
-                  :rules="[val => !!val || 'SKU is required']"
+                  :error="!!formErrors.sku"
+                  :error-message="formErrors.sku"
                 >
                   <template v-slot:prepend>
                     <q-icon name="qr_code" />
                   </template>
                 </q-input>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <q-select
+                  v-model="product.status"
+                  :options="['active', 'inactive', 'draft']"
+                  label="Status *"
+                  outlined
+                  dense
+                  :error="!!formErrors.status"
+                  :error-message="formErrors.status"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="toggle_on" />
+                  </template>
+                </q-select>
               </div>
 
               <div class="col-12">
@@ -110,7 +126,6 @@
                   Description
                 </div>
                 <q-card flat bordered>
-         
                   <q-bar class="bg-grey-2">
                     <q-btn flat dense size="sm" icon="format_bold" @click="formatText('bold')">
                       <q-tooltip>Bold</q-tooltip>
@@ -137,15 +152,16 @@
                   <div
                     ref="editor"
                     contenteditable="true"
-                    class="q-pa-md"
+                    class="q-pa-md editor-content"
                     style="min-height: 300px; outline: none"
-                    @input="updateDescription"
+                    @blur="updateDescription"
                   ></div>
                 </q-card>
               </div>
             </div>
           </q-tab-panel>
 
+          <!-- Categories Tab -->
           <q-tab-panel name="categories">
             <div class="text-h6 q-mb-md">Categories</div>
 
@@ -155,7 +171,7 @@
                   <q-icon name="account_tree" class="q-mr-xs" />
                   Category Tree
                 </div>
-                <q-card flat bordered>
+                <q-card flat bordered :class="formErrors.categories ? 'error-border' : ''">
                   <q-inner-loading :showing="loadingCategories">
                     <q-spinner color="primary" size="3em" />
                   </q-inner-loading>
@@ -183,6 +199,9 @@
                     </template>
                   </q-tree>
                 </q-card>
+                <div v-if="formErrors.categories" class="text-negative text-caption q-mt-xs">
+                  {{ formErrors.categories }}
+                </div>
               </div>
 
               <div class="col-12 col-md-6">
@@ -200,7 +219,8 @@
                   :disable="product.categories.length === 0"
                   emit-value
                   map-options
-                  :rules="[val => !!val || 'Default category is required']"
+                  :error="!!formErrors.default_category_id"
+                  :error-message="formErrors.default_category_id"
                 >
                   <template v-slot:prepend>
                     <q-icon name="label" />
@@ -235,6 +255,7 @@
             </div>
           </q-tab-panel>
 
+          <!-- Compatible Products Tab -->
           <q-tab-panel name="compatible">
             <div class="row items-center justify-between q-mb-md">
               <div class="text-h6">Compatible Products</div>
@@ -292,6 +313,7 @@
             </q-banner>
           </q-tab-panel>
 
+          <!-- Standard Product - Price Tab -->
           <q-tab-panel name="price" v-if="product.type == 'standard'">
             <div class="text-h6 q-mb-md">Price Information</div>
 
@@ -306,7 +328,9 @@
                   step="0.01"
                   min="0"
                   prefix="$"
-                  :rules="[val => val >= 0 || 'Price must be positive']"
+                  :error="!!formErrors.price"
+                  :error-message="formErrors.price"
+                  @keypress="onlyNumbers"
                 >
                   <template v-slot:prepend>
                     <q-icon name="attach_money" />
@@ -325,7 +349,9 @@
                   min="0"
                   max="100"
                   suffix="%"
-                  :rules="[val => val >= 0 && val <= 100 || 'GP% must be between 0 and 100']"
+                  :error="!!formErrors.gp_percentage"
+                  :error-message="formErrors.gp_percentage"
+                  @keypress="onlyNumbers"
                 >
                   <template v-slot:prepend>
                     <q-icon name="percent" />
@@ -343,15 +369,15 @@
                     <div class="row q-col-gutter-md q-mt-sm">
                       <div class="col-4">
                         <div class="text-caption text-grey-7">Base Price</div>
-                        <div class="text-h6 text-grey-9">${{ (product.price || 0)}}</div>
+                        <div class="text-h6 text-grey-9">${{ parseFloat(product.price || 0).toFixed(2) }}</div>
                       </div>
                       <div class="col-4">
                         <div class="text-caption text-grey-7">Gross Profit %</div>
-                        <div class="text-h6 text-grey-9">{{ (product.gp_percentage || 0) }}%</div>
+                        <div class="text-h6 text-grey-9">{{ parseFloat(product.gp_percentage || 0).toFixed(2) }}%</div>
                       </div>
                       <div class="col-4">
                         <div class="text-caption text-grey-7">Total Selling Price</div>
-                        <div class="text-h6 text-primary">${{ calculateStandardTotalPrice }}</div>
+                        <div class="text-h6 text-primary">${{ calculateStandardTotalPrice.toFixed(2) }}</div>
                       </div>
                     </div>
                   </q-card-section>
@@ -360,6 +386,7 @@
             </div>
           </q-tab-panel>
 
+          <!-- Bundle Product - Bundle & Price Tab -->
           <q-tab-panel name="bundle_and_price" v-if="product.type == 'bundle'">
             <div class="text-h6 q-mb-md">Bundle Products & Pricing</div>
 
@@ -401,7 +428,7 @@
               </q-list>
             </div>
 
-            <q-card flat bordered v-if="product.bundle_products.length > 0">
+            <q-card flat bordered v-if="product.bundle_products.length > 0" :class="formErrors.bundle_products ? 'error-border' : ''">
               <q-table
                 :rows="bundleProductsDetails"
                 :columns="bundleColumns"
@@ -433,11 +460,13 @@
                       v-model.number="props.row.price"
                       type="number"
                       dense
-                      borderless
+                      outlined
                       prefix="$"
                       step="0.01"
                       min="0"
+                      class="editable-input"
                       @update:model-value="updateBundleTotals"
+                      @keypress="onlyNumbers"
                     />
                   </q-td>
                 </template>
@@ -448,9 +477,11 @@
                       v-model.number="props.row.qty"
                       type="number"
                       dense
-                      borderless
+                      outlined
                       min="1"
+                      class="editable-input"
                       @update:model-value="updateBundleTotals"
+                      @keypress="onlyNumbers"
                     />
                   </q-td>
                 </template>
@@ -458,7 +489,7 @@
                 <template v-slot:body-cell-total="props">
                   <q-td :props="props">
                     <div class="text-weight-bold">
-                      ${{ ((props.row.price || 0) * (props.row.qty || 1)).toFixed(2) }}
+                      ${{ (parseFloat(props.row.price || 0) * parseInt(props.row.qty || 1)).toFixed(2) }}
                     </div>
                   </q-td>
                 </template>
@@ -487,10 +518,31 @@
                   </q-tr>
                 </template>
               </q-table>
+              <div v-if="formErrors.bundle_products" class="text-negative text-caption q-pa-sm">
+                {{ formErrors.bundle_products }}
+              </div>
 
               <q-card-section class="bg-grey-1">
                 <div class="row q-col-gutter-md">
-                  <div class="col-12 col-md-6">
+                  <div class="col-12 col-md-4">
+                    <q-input
+                      v-model.number="product.price"
+                      label="Bundle Base Price"
+                      outlined
+                      dense
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      prefix="$"
+                      hint="Fixed base price added to components"
+                      @keypress="onlyNumbers"
+                    >
+                      <template v-slot:prepend>
+                        <q-icon name="attach_money" />
+                      </template>
+                    </q-input>
+                  </div>
+                  <div class="col-12 col-md-4">
                     <q-input
                       v-model.number="product.bundle_gp_percentage"
                       label="Bundle GP % *"
@@ -502,7 +554,9 @@
                       max="100"
                       suffix="%"
                       hint="Gross profit percentage for the entire bundle"
-                      :rules="[val => val >= 0 && val <= 100 || 'GP% must be between 0 and 100']"
+                      :error="!!formErrors.bundle_gp_percentage"
+                      :error-message="formErrors.bundle_gp_percentage"
+                      @keypress="onlyNumbers"
                     >
                       <template v-slot:prepend>
                         <q-icon name="percent" />
@@ -513,20 +567,24 @@
                     <q-card flat bordered class="bg-blue-1">
                       <q-card-section>
                         <div class="row q-col-gutter-sm">
-                          <div class="col-6">
-                            <div class="text-caption text-grey-7">Products Subtotal</div>
+                          <div class="col-4">
+                            <div class="text-caption text-grey-7">Components Subtotal</div>
                             <div class="text-body1 text-weight-medium">${{ bundleTotals.subtotal.toFixed(2) }}</div>
                           </div>
-                          <div class="col-6">
+                          <div class="col-4">
+                            <div class="text-caption text-grey-7">Bundle Base Price</div>
+                            <div class="text-body1 text-weight-medium">${{ parseFloat(product.price || 0).toFixed(2) }}</div>
+                          </div>
+                          <div class="col-4">
                             <div class="text-caption text-grey-7">Bundle GP %</div>
-                            <div class="text-body1 text-weight-medium">{{ (product.bundle_gp_percentage || 0) }}%</div>
+                            <div class="text-body1 text-weight-medium">{{ parseFloat(product.bundle_gp_percentage || 0).toFixed(2) }}%</div>
                           </div>
                           <div class="col-12 q-mt-sm">
                             <q-separator />
                           </div>
                           <div class="col-12">
                             <div class="text-caption text-grey-7">Final Bundle Price</div>
-                            <div class="text-h6 text-primary text-weight-bold">${{ calculateBundleFinalPrice }}</div>
+                            <div class="text-h6 text-primary text-weight-bold">${{ calculateBundleFinalPrice.toFixed(2) }}</div>
                           </div>
                         </div>
                       </q-card-section>
@@ -544,6 +602,7 @@
             </q-banner>
           </q-tab-panel>
 
+          <!-- Images Tab -->
           <q-tab-panel name="images">
             <div class="row items-center justify-between q-mb-md">
               <div class="text-h6">Product Images</div>
@@ -565,45 +624,136 @@
               style="display: none"
             />
 
-            <q-card flat bordered v-if="allImages.length > 0">
+            <draggable
+              v-if="product.images.length > 0"
+              v-model="product.images"
+              item-key="id"
+              handle=".handle"
+              class="list-group"
+              ghost-class="ghost"
+            >
+              <template #item="{ element, index }">
+                <q-card flat bordered class="q-mb-sm q-pa-sm bg-grey-1">
+                  <div class="row items-center no-wrap q-col-gutter-md">
+                    <div class="col-auto">
+                      <q-icon name="drag_indicator" class="handle cursor-pointer text-grey-7" size="24px" />
+                    </div>
+                    
+                    <div class="col-auto">
+                       <q-img 
+                        :src="element.preview || element.url" 
+                        style="width: 80px; height: 80px" 
+                        class="rounded-borders bg-white"
+                        fit="cover"
+                       />
+                    </div>
+                    
+                    <div class="col">
+                        <div class="row q-col-gutter-sm">
+                            <div class="col-12 col-md-4">
+                                <q-input v-model="element.alt" dense outlined bg-color="white" label="Alt Text" />
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <q-input v-model="element.caption" dense outlined bg-color="white" label="Caption" />
+                            </div>
+                            <div class="col-12 col-md-4">
+                                 <q-input v-model="element.title" dense outlined bg-color="white" label="Title" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-auto text-center">
+                        <div class="text-caption text-grey-6 q-mb-xs">Primary</div>
+                        <q-btn 
+                            :icon="element.is_primary ? 'star' : 'star_border'" 
+                            :color="element.is_primary ? 'warning' : 'grey-5'" 
+                            round 
+                            flat 
+                            dense 
+                            size="lg"
+                            @click="setPrimaryImage(element)" 
+                        >
+                            <q-tooltip>{{ element.is_primary ? 'Primary Image' : 'Set as Primary' }}</q-tooltip>
+                        </q-btn>
+                    </div>
+                    
+                    <div class="col-auto">
+                         <q-btn 
+                            icon="delete" 
+                            color="negative" 
+                            flat 
+                            round 
+                            dense 
+                            @click="removeImage(element)" 
+                            :disable="element.is_primary && product.images.length > 1"
+                        />
+                    </div>
+                  </div>
+                </q-card>
+              </template>
+            </draggable>
+
+            <q-banner v-else class="bg-grey-2 text-grey-7">
+              <template v-slot:avatar>
+                <q-icon name="image" />
+              </template>
+              No images uploaded yet. Click "Upload Images" to add product photos.
+            </q-banner>
+          </q-tab-panel>
+
+          <!-- Suppliers Tab -->
+          <q-tab-panel name="suppliers">
+            <div class="text-h6 q-mb-md">Suppliers</div>
+
+            <!-- Supplier Search -->
+            <div class="q-mb-md">
+              <q-select
+                v-model="selectedSupplier"
+                use-input
+                hide-selected
+                fill-input
+                input-debounce="300"
+                label="Search and Add Supplier"
+                outlined
+                dense
+                :options="supplierOptions"
+                @filter="filterSuppliers"
+                @update:model-value="addSupplier"
+              >
+                <template v-slot:no-option>
+                  <q-item>
+                    <q-item-section class="text-grey">
+                      No results
+                    </q-item-section>
+                  </q-item>
+                </template>
+                <template v-slot:prepend>
+                  <q-icon name="search" />
+                </template>
+              </q-select>
+            </div>
+
+            <!-- Added Suppliers Table -->
+             <q-card flat bordered v-if="product.suppliers && product.suppliers.length > 0">
               <q-table
-                :rows="allImages"
-                :columns="imageColumns"
+                :rows="product.suppliers"
+                :columns="supplierColumns"
                 row-key="id"
                 flat
-                :pagination="{ rowsPerPage: 5 }"
+                hide-pagination
               >
-                <template v-slot:body-cell-preview="props">
+                <template v-slot:body-cell-price="props">
                   <q-td :props="props">
-                    <q-img
-                      :src="props.row.preview || props.row.url"
-                      style="width: 80px; height: 80px"
-                      class="rounded-borders"
-                    >
-                      <template v-slot:error>
-                        <div class="absolute-full flex flex-center bg-grey-3">
-                          <q-icon name="broken_image" size="40px" color="grey-5" />
-                        </div>
-                      </template>
-                    </q-img>
-                  </q-td>
-                </template>
-
-                <template v-slot:body-cell-alt="props">
-                  <q-td :props="props">
-                    <q-input v-model="props.row.alt" dense borderless placeholder="Alt text" />
-                  </q-td>
-                </template>
-
-                <template v-slot:body-cell-caption="props">
-                  <q-td :props="props">
-                    <q-input v-model="props.row.caption" dense borderless placeholder="Caption" />
-                  </q-td>
-                </template>
-
-                <template v-slot:body-cell-title="props">
-                  <q-td :props="props">
-                    <q-input v-model="props.row.title" dense borderless placeholder="Title" />
+                    <q-input
+                      v-model.number="props.row.price"
+                      type="number"
+                      dense
+                      outlined
+                      prefix="$"
+                      step="0.01"
+                      min="0"
+                      class="editable-input"
+                    />
                   </q-td>
                 </template>
 
@@ -615,7 +765,7 @@
                       round
                       icon="delete"
                       color="negative"
-                      @click="removeImage(props.row)"
+                      @click="removeSupplier(props.row.id)"
                     >
                       <q-tooltip>Remove</q-tooltip>
                     </q-btn>
@@ -626,9 +776,9 @@
 
             <q-banner v-else class="bg-grey-2 text-grey-7">
               <template v-slot:avatar>
-                <q-icon name="image" />
+                <q-icon name="local_shipping" />
               </template>
-              No images uploaded yet. Click "Upload Images" to add product photos.
+              No suppliers added yet. Search and add suppliers above.
             </q-banner>
           </q-tab-panel>
 
@@ -678,6 +828,8 @@
                   outlined
                   dense
                   hint="Leave empty to auto-generate from product name"
+                  :error="!!formErrors.slug"
+                  :error-message="formErrors.slug"
                   @input="formatSlug"
                 >
                   <template v-slot:prepend>
@@ -758,7 +910,6 @@
           </q-inner-loading>
 
           <q-list bordered separator class="q-mt-md" style="max-height: 400px; overflow-y: auto">
-   
             <q-item v-if="!productSearch && searchedProducts.length === 0 && !loadingProducts">
               <q-item-section>
                 <q-item-label class="text-center text-grey-6">
@@ -768,7 +919,6 @@
               </q-item-section>
             </q-item>
 
-         
             <q-item
               v-for="prod in searchedProducts"
               :key="prod.id"
@@ -808,13 +958,17 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import axios from 'axios'
 import { useRouter, useRoute } from 'vue-router'
+import draggable from 'vuedraggable'
 
 export default {
   name: 'ProductEdit',
+  components: {
+    draggable
+  },
 
   setup() {
     const $q = useQuasar()
@@ -822,7 +976,6 @@ export default {
     const route = useRoute()
 
     const uuid = route.params.uuid
-
 
     const tab = ref('basic')
     const expandedCategories = ref([])
@@ -836,6 +989,12 @@ export default {
     const loadingProducts = ref(false)
     const loadingBundleProducts = ref(false)
     const saving = ref(false)
+    const formErrors = ref({})
+    
+    // Supplier specific refs
+    const selectedSupplier = ref(null)
+    const supplierOptions = ref([])
+    const suppliersLoading = ref(false)
 
     const product = ref({
       type: '',
@@ -847,11 +1006,11 @@ export default {
       default_category_id: null,
       compatible_products: [],
       bundle_products: [],
+      suppliers: [],
       price: 0,
       gp_percentage: 0,
       bundle_gp_percentage: 0,
-      existing_images: [],
-      new_images: [],
+      images: [],
       deleted_images: [],
       meta_title: '',
       meta_description: '',
@@ -881,11 +1040,9 @@ export default {
       { name: 'actions', label: 'Actions', align: 'center' }
     ]
 
-    const imageColumns = [
-      { name: 'preview', label: 'Preview', align: 'left' },
-      { name: 'alt', label: 'Alt Text', field: 'alt', align: 'left' },
-      { name: 'caption', label: 'Caption', field: 'caption', align: 'left' },
-      { name: 'title', label: 'Title', field: 'title', align: 'left' },
+    const supplierColumns = [
+      { name: 'name', label: 'Supplier Name', field: 'name', align: 'left' },
+      { name: 'price', label: 'Price', field: 'price', align: 'left' },
       { name: 'actions', label: 'Actions', align: 'center' }
     ]
 
@@ -915,8 +1072,10 @@ export default {
       product.value.bundle_products.forEach(item => {
         const prod = bundleProductsCache.value[item.id]
         if (prod) {
-          subtotal += (prod.price || 0) * (prod.qty || 1)
-          totalQty += prod.qty || 1
+          const price = parseFloat(prod.price) || 0
+          const qty = parseInt(prod.qty) || 1
+          subtotal += price * qty
+          totalQty += qty
         }
       })
 
@@ -927,21 +1086,25 @@ export default {
     })
 
     const calculateStandardTotalPrice = computed(() => {
-      const basePrice = product.value.price || 0
-      const gpPercentage = product.value.gp_percentage || 0
+      const basePrice = parseFloat(product.value.price) || 0
+      const gpPercentage = parseFloat(product.value.gp_percentage) || 0
       return basePrice + (basePrice * gpPercentage / 100)
     })
 
     const calculateBundleFinalPrice = computed(() => {
-      const subtotal = bundleTotals.value.subtotal
-      const bundleGP = product.value.bundle_gp_percentage || 0
+      const componentsSubtotal = bundleTotals.value.subtotal
+      const basePrice = parseFloat(product.value.price) || 0
+      const subtotal = componentsSubtotal + basePrice
+      const bundleGP = parseFloat(product.value.bundle_gp_percentage) || 0
       return subtotal + (subtotal * bundleGP / 100)
     })
 
-    const allImages = computed(() => {
-      return [...product.value.existing_images, ...product.value.new_images]
-    })
-
+    const onlyNumbers = (evt) => {
+      const charCode = evt.which ? evt.which : evt.keyCode
+      if ((charCode > 31 && (charCode < 48 || charCode > 57)) && charCode !== 46) {
+        evt.preventDefault()
+      }
+    }
 
     const fetchProductData = async () => {
       try {
@@ -963,16 +1126,30 @@ export default {
           default_category_id: data.default_category_id,
           compatible_products: compatibleProductIds,
           bundle_products: [],
-          price: data.price || 0,
-          gp_percentage: data.gp_percentage || 0,
-          bundle_gp_percentage: data.bundle_gp_percentage || 0,
-          existing_images: data.images || [],
-          new_images: [],
+          suppliers: data.suppliers ? data.suppliers.map(s => ({
+            id: s.id,
+            name: s.name,
+            price: parseFloat(s.price)
+          })) : [],
+          price: data.price !== undefined && data.price !== null ? parseFloat(data.price) : 0,
+          gp_percentage: parseFloat(data.gp_percentage) || 0,
+          bundle_gp_percentage: parseFloat(data.bundle_gp_percentage) || 0,
+          images: (data.images || []).map(img => ({
+            ...img,
+            is_new: false
+          })),
           deleted_images: [],
           meta_title: data.meta_title || '',
           meta_description: data.meta_description || '',
-          slug: data.slug || ''
+          slug: data.slug || '',
+          status: data.status || 'active'
         }
+
+        nextTick(() => {
+          if (editor.value && product.value.description) {
+            editor.value.innerHTML = product.value.description
+          }
+        })
 
         if (data.compatible_products && Array.isArray(data.compatible_products)) {
           data.compatible_products.forEach(prod => {
@@ -983,6 +1160,8 @@ export default {
         if (data.type === 'bundle' && data.bundle_products) {
           product.value.bundle_products = data.bundle_products.map(item => ({
             id: item.id,
+            name: item.name,
+            sku: item.sku,
             price: parseFloat(item.price),
             qty: parseInt(item.qty)
           }))
@@ -997,10 +1176,6 @@ export default {
               qty: parseInt(item.qty)
             }
           })
-        }
-
-        if (editor.value) {
-          editor.value.innerHTML = data.description || ''
         }
 
       } catch (error) {
@@ -1050,6 +1225,7 @@ export default {
         })
         
         searchedProducts.value = response.data.data || []
+
       } catch (error) {
         $q.notify({
           type: 'negative',
@@ -1136,7 +1312,6 @@ export default {
       return category.name
     }
 
-    // Watch
     watch(
       () => product.value.categories,
       (newVal) => {
@@ -1149,20 +1324,23 @@ export default {
       }
     )
 
-
     const formatText = (command) => {
       document.execCommand(command, false, null)
+      editor.value?.focus()
     }
 
     const insertLink = () => {
       const url = prompt('Enter URL:')
       if (url) {
         document.execCommand('createLink', false, url)
+        editor.value?.focus()
       }
     }
 
-    const updateDescription = (event) => {
-      product.value.description = event.target.innerHTML
+    const updateDescription = () => {
+      if (editor.value) {
+        product.value.description = editor.value.innerHTML
+      }
     }
 
     const searchProducts = async (value) => {
@@ -1220,7 +1398,9 @@ export default {
       if (!isBundleProductAlreadyAdded(prod.id)) {
         const bundleItem = {
           id: prod.id,
-          price: 0,
+          name: prod.name,
+          sku: prod.sku,
+          price: parseFloat(prod.total_price || 0),
           qty: 1
         }
         
@@ -1228,7 +1408,7 @@ export default {
         
         bundleProductsCache.value[prod.id] = {
           ...prod,
-          price: 0,
+          price: parseFloat(prod.total_price || 0),
           qty: 1
         }
         
@@ -1274,24 +1454,41 @@ export default {
       })
     }
 
+    const setPrimaryImage = (image) => {
+      product.value.images.forEach(img => {
+        img.is_primary = false
+      })
+      
+      image.is_primary = true
+      
+      $q.notify({
+        type: 'positive',
+        message: 'Primary image updated',
+        position: 'top'
+      })
+    }
+
     const triggerFileUpload = () => {
       fileInput.value.click()
     }
 
     const handleFileUpload = (event) => {
       const files = event.target.files
+      const isFirstImage = product.value.images.length === 0
+      
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         const reader = new FileReader()
         reader.onload = (e) => {
-          product.value.new_images.push({
+          product.value.images.push({
             id: Date.now() + i,
             file: file,
             preview: e.target.result,
             alt: '',
             caption: '',
             title: file.name,
-            is_new: true
+            is_new: true,
+            is_primary: isFirstImage && i === 0
           })
         }
         reader.readAsDataURL(file)
@@ -1305,11 +1502,17 @@ export default {
     }
 
     const removeImage = (image) => {
-      if (image.is_new) {
-        product.value.new_images = product.value.new_images.filter(img => img.id !== image.id)
-      } else {
+      if (!image.is_new) {
         product.value.deleted_images.push(image.id)
-        product.value.existing_images = product.value.existing_images.filter(img => img.id !== image.id)
+      }
+      
+      product.value.images = product.value.images.filter(img => img.id !== image.id)
+      
+      if (image.is_primary && product.value.images.length > 0) {
+        const remaining = product.value.images.filter(img => img.id !== image.id)
+        if (remaining.length > 0) {
+          remaining[0].is_primary = true
+        }
       }
       
       $q.notify({
@@ -1359,56 +1562,76 @@ export default {
     }
 
     const validateForm = () => {
-      const errors = []
+      formErrors.value = {}
 
       if (!product.value.name) {
-        errors.push('Product name is required')
+        formErrors.value.name = 'Product name is required'
       }
 
       if (!product.value.sku) {
-        errors.push('SKU is required')
+        formErrors.value.sku = 'SKU is required'
       }
 
       if (product.value.categories.length === 0) {
-        errors.push('At least one category must be selected')
+        formErrors.value.categories = 'At least one category must be selected'
       }
 
       if (!product.value.default_category_id) {
-        errors.push('Default category is required')
+        formErrors.value.default_category_id = 'Default category is required'
       }
 
       if (product.value.type === 'standard') {
         if (!product.value.price || product.value.price <= 0) {
-          errors.push('Price is required for standard products')
+          formErrors.value.price = 'Price is required for standard products'
         }
         if (product.value.gp_percentage < 0 || product.value.gp_percentage > 100) {
-          errors.push('GP% must be between 0 and 100')
+          formErrors.value.gp_percentage = 'GP% must be between 0 and 100'
         }
       }
 
       if (product.value.type === 'bundle') {
         if (product.value.bundle_products.length === 0) {
-          errors.push('At least one product must be added to the bundle')
+          formErrors.value.bundle_products = 'At least one product must be added to the bundle'
         }
         if (product.value.bundle_gp_percentage < 0 || product.value.bundle_gp_percentage > 100) {
-          errors.push('Bundle GP% must be between 0 and 100')
+          formErrors.value.bundle_gp_percentage = 'Bundle GP% must be between 0 and 100'
         }
       }
 
-      return errors
+      return Object.keys(formErrors.value).length === 0
+    }
+
+    const scrollToFirstError = () => {
+      nextTick(() => {
+        const errorFields = {
+          name: 'basic',
+          sku: 'basic',
+          categories: 'categories',
+          default_category_id: 'categories',
+          price: 'price',
+          gp_percentage: 'price',
+          bundle_products: 'bundle_and_price',
+          bundle_gp_percentage: 'bundle_and_price',
+          slug: 'seo'
+        }
+
+        for (const [field, tabName] of Object.entries(errorFields)) {
+          if (formErrors.value[field]) {
+            tab.value = tabName
+            break
+          }
+        }
+      })
     }
 
     const handleUpdate = async () => {
-      const errors = validateForm()
-      
-      if (errors.length > 0) {
+      if (!validateForm()) {
+        scrollToFirstError()
         $q.notify({
           type: 'negative',
-          message: 'Validation Error',
-          caption: errors.join(', '),
+          message: 'Please fix the errors in the form',
           position: 'top'
         })
-        tab.value = 'basic'
         return
       }
 
@@ -1426,6 +1649,7 @@ export default {
         formData.append('slug', product.value.slug || '')
         formData.append('meta_title', product.value.meta_title || '')
         formData.append('meta_description', product.value.meta_description || '')
+        formData.append('status', product.value.status)
 
         if (product.value.type === 'standard') {
           formData.append('price', product.value.price)
@@ -1439,6 +1663,7 @@ export default {
             formData.append(`bundle_products[${index}][qty]`, item.qty)
           })
           formData.append('bundle_gp_percentage', product.value.bundle_gp_percentage)
+          formData.append('price', product.value.price)
         }
 
         product.value.categories.forEach((catId, index) => {
@@ -1451,19 +1676,39 @@ export default {
           })
         }
 
-        product.value.new_images.forEach((image, index) => {
-          formData.append(`images[${index}][file]`, image.file)
-          formData.append(`images[${index}][alt]`, image.alt || '')
-          formData.append(`images[${index}][title]`, image.title || '')
-          formData.append(`images[${index}][caption]`, image.caption || '')
+        // Handle images (both new and existing)
+        let newImageIndex = 0
+        let existingImageIndex = 0
+
+        product.value.images.forEach((image, index) => {
+          // Both new and existing images get the sort_order from the current array position
+          const sortOrder = index
+
+          if (image.is_new) {
+            formData.append(`images[${newImageIndex}][file]`, image.file)
+            formData.append(`images[${newImageIndex}][alt]`, image.alt || '')
+            formData.append(`images[${newImageIndex}][title]`, image.title || '')
+            formData.append(`images[${newImageIndex}][caption]`, image.caption || '')
+            formData.append(`images[${newImageIndex}][sort_order]`, sortOrder)
+            formData.append(`images[${newImageIndex}][is_primary]`, image.is_primary ? 1 : 0)
+            newImageIndex++
+          } else {
+            formData.append(`existing_images[${existingImageIndex}][id]`, image.id)
+            formData.append(`existing_images[${existingImageIndex}][alt]`, image.alt || '')
+            formData.append(`existing_images[${existingImageIndex}][title]`, image.title || '')
+            formData.append(`existing_images[${existingImageIndex}][caption]`, image.caption || '')
+            formData.append(`existing_images[${existingImageIndex}][sort_order]`, sortOrder)
+            formData.append(`existing_images[${existingImageIndex}][is_primary]`, image.is_primary ? 1 : 0)
+            existingImageIndex++
+          }
         })
 
-        product.value.existing_images.forEach((image, index) => {
-          formData.append(`existing_images[${index}][id]`, image.id)
-          formData.append(`existing_images[${index}][alt]`, image.alt || '')
-          formData.append(`existing_images[${index}][title]`, image.title || '')
-          formData.append(`existing_images[${index}][caption]`, image.caption || '')
-        })
+        if (product.value.suppliers && product.value.suppliers.length > 0) {
+            product.value.suppliers.forEach((supplier, index) => {
+                formData.append(`suppliers[${index}][id]`, supplier.id)
+                formData.append(`suppliers[${index}][price]`, supplier.price)
+            })
+        }
 
         if (product.value.deleted_images.length > 0) {
           product.value.deleted_images.forEach((id, index) => {
@@ -1491,26 +1736,101 @@ export default {
       } catch (error) {
         console.error('Error updating product:', error)
         
-        let errorMessage = 'Failed to update product'
-        
         if (error.response?.data?.errors) {
-          const errors = Object.values(error.response.data.errors).flat()
-          errorMessage = errors.join(', ')
-        } else if (error.response?.data?.message) {
-          errorMessage = error.response.data.message
-        } else if (error.message) {
-          errorMessage = error.message
-        }
+          formErrors.value = {}
+          Object.keys(error.response.data.errors).forEach(key => {
+            formErrors.value[key] = error.response.data.errors[key][0]
+          })
+          scrollToFirstError()
+          
+          $q.notify({
+            type: 'negative',
+            message: 'Please fix the errors in the form',
+            position: 'top'
+          })
+        } else {
+          let errorMessage = 'Failed to update product'
+          
+          if (error.response?.data?.message) {
+            errorMessage = error.response.data.message
+          } else if (error.message) {
+            errorMessage = error.message
+          }
 
-        $q.notify({
-          type: 'negative',
-          message: 'Error',
-          caption: errorMessage,
-          position: 'top'
-        })
+          $q.notify({
+            type: 'negative',
+            message: 'Error',
+            caption: errorMessage,
+            position: 'top'
+          })
+        }
       } finally {
         saving.value = false
       }
+    }
+
+    const filterSuppliers = (val, update, abort) => {
+      if (val.length < 2) {
+        abort()
+        return
+      }
+
+      update(() => {
+        suppliersLoading.value = true
+        axios.get('/admin/suppliers', { params: { search: val } })
+          .then(response => {
+            supplierOptions.value = response.data.suppliers.data.map(s => ({
+              label: s.name,
+              value: s.id,
+              ...s
+            }))
+          })
+          .catch(error => {
+            console.error('Error fetching suppliers', error)
+            $q.notify({
+              type: 'negative',
+              message: 'Failed to search suppliers'
+            })
+          })
+          .finally(() => {
+             suppliersLoading.value = false
+          })
+      })
+    }
+
+    const addSupplier = (supplier) => {
+      if (!supplier) return
+      
+      const exists = product.value.suppliers.some(s => s.id === supplier.value)
+      if (exists) {
+        $q.notify({
+          type: 'warning',
+          message: 'Supplier already added'
+        })
+        selectedSupplier.value = null
+        return
+      }
+
+      product.value.suppliers.push({
+        id: supplier.value,
+        name: supplier.label,
+        price: product.value.price || 0 
+      })
+      
+      selectedSupplier.value = null
+      
+      $q.notify({
+        type: 'positive',
+        message: 'Supplier added'
+      })
+    }
+
+    const removeSupplier = (id) => {
+      product.value.suppliers = product.value.suppliers.filter(s => s.id !== id)
+      $q.notify({
+         type: 'info',
+         message: 'Supplier removed'
+      })
     }
 
     const handleCancel = () => {
@@ -1550,14 +1870,13 @@ export default {
       bundleSearchResults,
       compatibleColumns,
       bundleColumns,
-      imageColumns,
       selectedCategoryOptions,
       compatibleProductsDetails,
       bundleProductsDetails,
       bundleTotals,
       calculateStandardTotalPrice,
       calculateBundleFinalPrice,
-      allImages,
+      formErrors,
       getCategoryLabel,
       formatText,
       insertLink,
@@ -1572,6 +1891,7 @@ export default {
       removeBundleProduct,
       isBundleProductAlreadyAdded,
       updateBundleTotals,
+      setPrimaryImage,
       triggerFileUpload,
       handleFileUpload,
       removeImage,
@@ -1580,12 +1900,43 @@ export default {
       autoGenerateSlug,
       getFullUrl,
       handleUpdate,
-      handleCancel
+      handleCancel,
+      onlyNumbers,
+      selectedSupplier,
+      supplierOptions,
+      supplierColumns,
+      filterSuppliers,
+      addSupplier,
+      removeSupplier
     }
   }
 }
 </script>
 
 <style scoped>
+.editor-content:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: -2px;
+}
 
+.editable-input {
+  min-width: 100px;
+}
+
+.editable-input :deep(.q-field__control) {
+  background-color: #f5f5f5;
+}
+
+.editable-input:hover :deep(.q-field__control) {
+  background-color: #eeeeee;
+}
+
+.editable-input :deep(.q-field__control):focus-within {
+  background-color: white;
+  border-color: #1976d2;
+}
+
+.error-border {
+  border: 1px solid #c10015;
+}
 </style>

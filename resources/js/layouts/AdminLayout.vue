@@ -55,6 +55,20 @@
           <q-item-section>Products</q-item-section>
         </q-item>
 
+        <q-item clickable v-ripple to="/suppliers">
+          <q-item-section avatar>
+            <q-icon name="product" />
+          </q-item-section>
+          <q-item-section>Suppliers</q-item-section>
+        </q-item>
+
+         <q-item clickable v-ripple to="/product-reports">
+          <q-item-section avatar>
+            <q-icon name="product" />
+          </q-item-section>
+          <q-item-section>Product Reports</q-item-section>
+        </q-item>
+
       </q-list>
     </q-drawer>
 

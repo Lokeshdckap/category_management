@@ -31,6 +31,7 @@ class Product extends Model
         'meta_title',
         'meta_description',
         'status',
+        'is_active',
     ];
 
     protected $casts = [
@@ -111,7 +112,15 @@ class Product extends Model
 
     public function images()
     {
-        return $this->hasMany(ProductImage::class)->orderBy('sort_order');
+        return $this->hasMany(ProductImage::class)->orderBy('is_primary', 'desc')->orderBy('sort_order');
+    }
+
+    public function primaryImage()
+    {
+        return $this->hasOne(ProductImage::class)->ofMany([
+            'is_primary' => 'max',
+            'sort_order' => 'min',
+        ], 'id');
     }
 
     public function scopeOfType($query, $type)
@@ -139,6 +148,13 @@ class Product extends Model
         return $this->type === 'standard';
     }
 
+    public function suppliers()
+    {
+        return $this->belongsToMany(Supplier::class, 'product_supplier')
+            ->withPivot('price')
+            ->withTimestamps();
+    }
+
 
     public function getCalculatedTotalPriceAttribute()
     {
@@ -156,9 +172,12 @@ class Product extends Model
             return 0;
         }
 
-        return $this->bundleProducts->sum(function ($product) {
-            return $product->pivot->price * $product->pivot->quantity;
+        $componentsSubtotal = $this->bundleProducts->sum(function ($product) {
+            $price = $product->pivot->price > 0 ? $product->pivot->price : ($product->total_price ?? 0);
+            return $price * $product->pivot->quantity;
         });
+
+        return $componentsSubtotal + ($this->price ?? 0);
     }
 
     public function getCalculatedBundleFinalPriceAttribute()

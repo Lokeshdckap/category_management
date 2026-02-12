@@ -1,5 +1,5 @@
 import { createApp } from 'vue';
-import { Quasar, Notify } from 'quasar';
+import { Quasar, Notify, Dialog } from 'quasar';
 import axios from 'axios';
 import router from './router';
 
@@ -28,7 +28,8 @@ app.config.globalProperties.$axios = axios;
 
 app.use(Quasar, {
     plugins: {
-        Notify
+        Notify,
+        Dialog
     }
 });
 

@@ -12,31 +12,87 @@ use Illuminate\Support\Facades\DB;
 
 class SupplierController extends Controller
 {
+   
+    public function index(Request $request)
+    {
+        $query = Supplier::query();
 
-   public function __invoke(Request $request)
-   {
-       $validator = Validator::make($request->all(),[
-          'name' => 'required | string | max:255',
-          'description' => 'nullable|string'
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
 
-       ]);
+        $suppliers = $query->paginate(10);
 
-       if($validator->fails()){
         return response()->json([
-            'errors'=>$validator->errors()
-        ],422);
-       }
-
-       $supplier = new Supplier();
-       $supplier->name = $request->name;
-       $supplier->description = $request->description;
-
-       $supplier->save();
+            'suppliers' => $suppliers
+        ], 200);
+    }
 
 
-       return response()->json([
-        'mes'=>"supplier created"
-       ],201);
-   }
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
+        ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $supplier = new Supplier();
+        $supplier->name = $request->name;
+        $supplier->description = $request->description;
+        $supplier->save();
+
+        return response()->json([
+            'message' => "Supplier created successfully",
+            'supplier' => $supplier
+        ], 201);
+    }
+
+    public function show($id)
+    {
+        $supplier = Supplier::findOrFail($id);
+        return response()->json([
+            'supplier' => $supplier
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $supplier = Supplier::findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $supplier->name = $request->name;
+        $supplier->description = $request->description;
+        $supplier->save();
+
+        return response()->json([
+            'message' => "Supplier updated successfully",
+            'supplier' => $supplier
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        $supplier = Supplier::findOrFail($id);
+        $supplier->delete();
+
+        return response()->json([
+            'message' => "Supplier deleted successfully"
+        ]);
+    }
 }

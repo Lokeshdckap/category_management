@@ -105,6 +105,16 @@ class CategoryController extends Controller
             );
         }
 
+        if ($category->products()->exists()) {
+            return response()->json(
+                [
+                    "message" =>
+                        "Cannot delete category with associated products. Please reassign or delete products first.",
+                ],
+                422
+            );
+        }
+
         if ($category->featured_image) {
             Storage::disk("public")->delete($category->featured_image);
         }
@@ -120,6 +130,18 @@ class CategoryController extends Controller
     public function status($uuid)
     {
         $category = Category::where("uuid", $uuid)->firstOrFail();
+        
+        // If currently active and trying to deactivate, check for products
+        if ($category->status && $category->products()->exists()) {
+            return response()->json(
+                [
+                    "message" =>
+                        "Cannot deactivate category with associated products.",
+                ],
+                422
+            );
+        }
+
         $category->status = !$category->status;
         $category->save();
 

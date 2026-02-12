@@ -7,8 +7,8 @@ const routes = [
         path: '/auth',
         component: () => import('layouts/AuthLayout.vue'),
         children: [
-            { 
-                path: 'login', 
+            {
+                path: 'login',
                 name: 'Login',
                 component: () => import('pages/auth/LoginPage.vue'),
                 meta: { guest: true }
@@ -20,47 +20,47 @@ const routes = [
         component: () => import('layouts/AdminLayout.vue'),
         meta: { requiresAuth: true },
         children: [
-            { 
-                path: '', 
+            {
+                path: '',
                 redirect: '/admin/dashboard'  // Add redirect for /admin
             },
-            { 
-                path: 'dashboard', 
+            {
+                path: 'dashboard',
                 name: 'Dashboard',
                 component: () => import('pages/admin/DashboardPage.vue')
             },
-            { 
-                path: 'categories', 
+            {
+                path: 'categories',
                 name: 'CategoryList',
                 component: () => import('pages/admin/categories/CategoryList.vue')
             },
-            { 
-                path: 'categories/create', 
+            {
+                path: 'categories/create',
                 name: 'CategoryCreate',
                 component: () => import('pages/admin/categories/CategoryForm.vue')
             },
-            { 
-                path: 'categories/:uuid/edit', 
+            {
+                path: 'categories/:uuid/edit',
                 name: 'CategoryEdit',
                 component: () => import('pages/admin/categories/CategoryForm.vue')
             },
-            { 
-                path: 'products', 
+            {
+                path: 'products',
                 name: 'ProductList',
                 component: () => import('pages/admin/products/ProductList.vue')
             },
-            { 
-                path: 'products/create', 
+            {
+                path: 'products/create',
                 name: 'ProductCreate',
                 component: () => import('pages/admin/products/ProductCreate.vue')
             },
-            { 
-                path: 'suppliers/create', 
+            {
+                path: 'suppliers/create',
                 name: 'SupplierCreate',
                 component: () => import('pages/admin/suppliers/SupplierForm.vue')
             },
-            { 
-                path: 'products/:uuid/edit', 
+            {
+                path: 'products/:uuid/edit',
                 name: 'ProductEdit',
                 component: () => import('pages/admin/products/ProductEdit.vue')
             },

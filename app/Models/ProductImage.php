@@ -7,11 +7,18 @@ use Illuminate\Support\Str;
 
 class ProductImage extends Model
 {
-   protected $fillable = [
-        'uuid','product_id','image_path','alt','title',
-        'caption','sort_order'];
+    protected $fillable = [
+        'uuid',
+        'product_id',
+        'image_path',
+        'alt',
+        'title',
+        'caption',
+        'sort_order',
+        'is_primary'
+    ];
 
-     protected static function booted()
+    protected static function booted()
     {
         static::creating(function ($model) {
             $model->uuid = (string) Str::uuid();

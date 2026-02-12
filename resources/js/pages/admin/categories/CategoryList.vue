@@ -267,259 +267,233 @@
   </q-page>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useQuasar } from 'quasar'
 import draggable from 'vuedraggable'
 import axios from 'axios'
 
-export default {
-  name: 'CategoryList',
+const $q = useQuasar()
 
-  components: {
-    draggable
-  },
+const categories = ref([])
+const loading = ref(false)
+const search = ref('')
+const statusFilter = ref(null)
+const featuredFilter = ref(null)
+const currentParentId = ref(null)
+const breadcrumbs = ref([])
+const showReorderDialog = ref(false)
+const reorderCategories = ref([])
+const originalReorderCategories = ref([])
+const reorderLoading = ref(false)
+const reorderSaving = ref(false)
 
-  data() {
-    return {
-      categories: [],
-      loading: false,
-      search: '',
-      statusFilter: null,
-      featuredFilter: null,
-      currentParentId: null,
-      breadcrumbs: [],
-      showReorderDialog: false,
-      reorderCategories: [],
-      originalReorderCategories: [],
-      reorderLoading: false,
-      reorderSaving: false,
-      
-      statusOptions: [
-        { label: 'All', value: null },
-        { label: 'Active', value: true },
-        { label: 'Inactive', value: false }
-      ],
-      
-      featuredOptions: [
-        { label: 'All', value: null },
-        { label: 'Featured', value: true },
-        { label: 'Not Featured', value: false }
-      ],
-      
-      columns: [
-        { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
-        { name: 'slug', label: 'Slug', field: 'slug', align: 'left', sortable: true },
-        { name: 'subcategories', label: 'Subcategories', align: 'center' },
-        { name: 'featured', label: 'Featured', field: 'featured', align: 'center' },
-        { name: 'status', label: 'Status', align: 'center' },
-        { name: 'actions', label: 'Actions', align: 'center' }
-      ]
+const statusOptions = [
+  { label: 'All', value: null },
+  { label: 'Active', value: true },
+  { label: 'Inactive', value: false }
+]
+
+const featuredOptions = [
+  { label: 'All', value: null },
+  { label: 'Featured', value: true },
+  { label: 'Not Featured', value: false }
+]
+
+const columns = [
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  { name: 'slug', label: 'Slug', field: 'slug', align: 'left', sortable: true },
+  { name: 'subcategories', label: 'Subcategories', align: 'center' },
+  { name: 'featured', label: 'Featured', field: 'featured', align: 'center' },
+  { name: 'status', label: 'Status', align: 'center' },
+  { name: 'actions', label: 'Actions', align: 'center' }
+]
+
+const hasReorderChanges = computed(() => {
+  return JSON.stringify(reorderCategories.value) !== JSON.stringify(originalReorderCategories.value)
+})
+
+const currentLevelName = computed(() => {
+  if (breadcrumbs.value.length > 0) {
+    return `Subcategories of "${breadcrumbs.value[breadcrumbs.value.length - 1].name}"`
+  }
+  return 'Categories'
+})
+
+const fetchCategories = async () => {
+  loading.value = true
+  try {
+    const params = {
+      search: search.value
     }
-  },
 
-  computed: {
-    hasReorderChanges() {
-      return JSON.stringify(this.reorderCategories) !== JSON.stringify(this.originalReorderCategories)
-    },
-
-    currentLevelName() {
-      if (this.breadcrumbs.length > 0) {
-        return `Subcategories of "${this.breadcrumbs[this.breadcrumbs.length - 1].name}"`
-      }
-      return 'Categories'
+    if (currentParentId.value) {
+      params.parent_id = currentParentId.value
+    } else {
+      params.main_only = true
     }
-  },
 
-  mounted() {
-    this.fetchCategories()
-  },
-
-  methods: {
-    async fetchCategories() {
-      this.loading = true
-      try {
-        const params = {
-          search: this.search
-        }
-
-        // If we're viewing subcategories, filter by parent
-        if (this.currentParentId) {
-          params.parent_id = this.currentParentId
-        } else {
-          // Otherwise show only main categories
-          params.main_only = true
-        }
-
-        if (this.statusFilter !== null) {
-          params.status = this.statusFilter
-        }
-
-        if (this.featuredFilter !== null) {
-          params.featured = this.featuredFilter
-        }
-
-        const res = await axios.get('/admin/categories', { params })
-        this.categories = res.data
-      } catch (error) {
-        console.error(error)
-        this.$q.notify({
-          type: 'negative',
-          message: 'Failed to fetch categories'
-        })
-      } finally {
-        this.loading = false
-      }
-    },
-
-    viewSubcategories(category) {
-      // Add to breadcrumbs
-      this.breadcrumbs.push({
-        uuid: category.uuid,
-        id: category.id,
-        name: category.name
-      })
-
-      // Set current parent and fetch children
-      this.currentParentId = category.id
-      this.fetchCategories()
-    },
-
-    navigateToRoot() {
-      this.breadcrumbs = []
-      this.currentParentId = null
-      this.fetchCategories()
-    },
-
-    navigateToBreadcrumb(index) {
-      // Remove breadcrumbs after the clicked one
-      const clickedCrumb = this.breadcrumbs[index]
-      this.breadcrumbs = this.breadcrumbs.slice(0, index + 1)
-      
-      // Set parent and fetch
-      this.currentParentId = clickedCrumb.id
-      this.fetchCategories()
-    },
-
-    async changeStatus(category, newStatus) {
-      const oldStatus = category.status
-      category.status = newStatus
-      category.statusLoading = true
-
-      try {
-        await axios.patch(`/admin/categories/${category.uuid}/status`, {
-          status: newStatus
-        })
-        
-        this.$q.notify({ 
-          type: 'positive', 
-          message: 'Status updated successfully',
-          position: 'top'
-        })
-      } catch (error) {
-        console.error(error)
-        category.status = oldStatus
-        
-        this.$q.notify({ 
-          type: 'negative', 
-          message: 'Failed to update status' 
-        })
-      } finally {
-        category.statusLoading = false
-      }
-    },
-
-    deleteCategory(uuid) {
-      this.$q.dialog({
-        title: 'Confirm Delete',
-        message: 'Are you sure you want to delete this category? This action cannot be undone.',
-        cancel: { flat: true, label: 'Cancel' },
-        ok: { flat: true, label: 'Delete', color: 'negative' },
-        persistent: true
-      }).onOk(async () => {
-        try {
-          await axios.delete(`/admin/categories/${uuid}`)
-          this.fetchCategories()
-          this.$q.notify({ 
-            type: 'positive', 
-            message: 'Category deleted successfully',
-            position: 'top'
-          })
-        } catch (error) {
-          console.error(error)
-          const message = error.response?.data?.message || 'Failed to delete category'
-          this.$q.notify({ type: 'negative', message, position: 'top' })
-        }
-      })
-    },
-
-    openReorderDialog() {
-      this.showReorderDialog = true
-      this.fetchReorderCategories()
-    },
-
-    async fetchReorderCategories() {
-      this.reorderLoading = true
-      try {
-        const params = {}
-        
-        // Fetch categories at current level only
-        if (this.currentParentId) {
-          params.parent_id = this.currentParentId
-        } else {
-          params.main_only = true
-        }
-
-        const res = await axios.get('/admin/categories', { params })
-        
-        // Sort by sort_order
-        this.reorderCategories = [...res.data].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-        this.originalReorderCategories = JSON.parse(JSON.stringify(this.reorderCategories))
-      } catch (error) {
-        console.error(error)
-        this.$q.notify({ type: 'negative', message: 'Failed to fetch categories' })
-      } finally {
-        this.reorderLoading = false
-      }
-    },
-
-    onReorderDragEnd() {
-      this.$q.notify({
-        type: 'info',
-        message: 'Order changed. Click "Save Order" to apply changes.',
-        position: 'top',
-        timeout: 2000
-      })
-    },
-
-    async saveReorderOrder() {
-      this.reorderSaving = true
-
-      try {
-        const items = this.reorderCategories.map((cat, index) => ({
-          uuid: cat.uuid,
-          sort_order: index + 1
-        }))
-
-        await axios.post('/admin/categories/reorder', { items })
-
-        this.$q.notify({ 
-          type: 'positive', 
-          message: 'Order saved successfully',
-          position: 'top'
-        })
-
-        this.originalReorderCategories = JSON.parse(JSON.stringify(this.reorderCategories))
-        this.showReorderDialog = false
-        this.fetchCategories()
-
-      } catch (error) {
-        console.error(error)
-        this.$q.notify({ type: 'negative', message: 'Failed to save order', position: 'top' })
-      } finally {
-        this.reorderSaving = false
-      }
+    if (statusFilter.value !== null) {
+      params.status = statusFilter.value
     }
+
+    if (featuredFilter.value !== null) {
+      params.featured = featuredFilter.value
+    }
+
+    const res = await axios.get('/admin/categories', { params })
+    categories.value = res.data
+  } catch (error) {
+    console.error(error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to fetch categories'
+    })
+  } finally {
+    loading.value = false
   }
 }
+
+const viewSubcategories = (category) => {
+  breadcrumbs.value.push({
+    uuid: category.uuid,
+    id: category.id,
+    name: category.name
+  })
+  currentParentId.value = category.id
+  fetchCategories()
+}
+
+const navigateToRoot = () => {
+  breadcrumbs.value = []
+  currentParentId.value = null
+  fetchCategories()
+}
+
+const navigateToBreadcrumb = (index) => {
+  const clickedCrumb = breadcrumbs.value[index]
+  breadcrumbs.value = breadcrumbs.value.slice(0, index + 1)
+  currentParentId.value = clickedCrumb.id
+  fetchCategories()
+}
+
+const changeStatus = async (category, newStatus) => {
+  const oldStatus = category.status
+  category.status = newStatus
+  category.statusLoading = true
+
+  try {
+    await axios.patch(`/admin/categories/${category.uuid}/status`, {
+      status: newStatus
+    })
+    
+    $q.notify({ 
+      type: 'positive', 
+      message: 'Status updated successfully',
+      position: 'top'
+    })
+  } catch (error) {
+    console.error(error)
+    category.status = oldStatus
+    
+    $q.notify({ 
+      type: 'negative', 
+      message: error.response?.data?.message || 'Failed to update status' 
+    })
+  } finally {
+    category.statusLoading = false
+  }
+}
+
+const deleteCategory = (uuid) => {
+  $q.dialog({
+    title: 'Confirm Delete',
+    message: 'Are you sure you want to delete this category? This action cannot be undone.',
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { flat: true, label: 'Delete', color: 'negative' },
+    persistent: true
+  }).onOk(async () => {
+    try {
+      await axios.delete(`/admin/categories/${uuid}`)
+      fetchCategories()
+      $q.notify({ 
+        type: 'positive', 
+        message: 'Category deleted successfully',
+        position: 'top'
+      })
+    } catch (error) {
+      console.error(error)
+      const message = error.response?.data?.message || 'Failed to delete category'
+      $q.notify({ type: 'negative', message, position: 'top' })
+    }
+  })
+}
+
+const fetchReorderCategories = async () => {
+  reorderLoading.value = true
+  try {
+    const params = {}
+    if (currentParentId.value) {
+      params.parent_id = currentParentId.value
+    } else {
+      params.main_only = true
+    }
+
+    const res = await axios.get('/admin/categories', { params })
+    reorderCategories.value = [...res.data].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    originalReorderCategories.value = JSON.parse(JSON.stringify(reorderCategories.value))
+  } catch (error) {
+    console.error(error)
+    $q.notify({ type: 'negative', message: 'Failed to fetch categories' })
+  } finally {
+    reorderLoading.value = false
+  }
+}
+
+const openReorderDialog = () => {
+  showReorderDialog.value = true
+  fetchReorderCategories()
+}
+
+const onReorderDragEnd = () => {
+  $q.notify({
+    type: 'info',
+    message: 'Order changed. Click "Save Order" to apply changes.',
+    position: 'top',
+    timeout: 2000
+  })
+}
+
+const saveReorderOrder = async () => {
+  reorderSaving.value = true
+  try {
+    const items = reorderCategories.value.map((cat, index) => ({
+      uuid: cat.uuid,
+      sort_order: index + 1
+    }))
+
+    await axios.post('/admin/categories/reorder', { items })
+
+    $q.notify({ 
+      type: 'positive', 
+      message: 'Order saved successfully',
+      position: 'top'
+    })
+
+    originalReorderCategories.value = JSON.parse(JSON.stringify(reorderCategories.value))
+    showReorderDialog.value = false
+    fetchCategories()
+  } catch (error) {
+    console.error(error)
+    $q.notify({ type: 'negative', message: 'Failed to save order', position: 'top' })
+  } finally {
+    reorderSaving.value = false
+  }
+}
+
+onMounted(() => {
+  fetchCategories()
+})
 </script>
 
 <style scoped>
