@@ -10,8 +10,18 @@ use App\Http\Controllers\Api\ProductReportController;
 
 
 
+
+use App\Http\Controllers\Api\FrontendController;
+
 Route::post("/login", LoginController::class);
 
+Route::prefix('shop')->group(function () {
+    Route::get('/products', [FrontendController::class, 'products']);
+    Route::get('/products/{slug}', [FrontendController::class, 'show']);
+    Route::get('/categories', [FrontendController::class, 'categories']);
+    Route::get('/featured-categories', [FrontendController::class, 'featuredCategories']);
+    Route::get('/resolve/{slug}', [FrontendController::class, 'resolve'])->where('slug', '.*');
+});
 
 Route::middleware(["auth:sanctum", "role:admin"])
     ->prefix("admin")
