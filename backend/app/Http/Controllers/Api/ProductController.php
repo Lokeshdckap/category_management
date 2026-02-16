@@ -232,6 +232,16 @@ class ProductController extends Controller
                     ];
                 }
                 $product->suppliers()->sync($supplierData);
+            } else {
+                // Auto-assign default supplier if exists
+                $defaultSupplier = \App\Models\Supplier::where('is_default', true)->where('status', 'active')->first();
+                if ($defaultSupplier) {
+                    $product->suppliers()->sync([
+                        $defaultSupplier->id => [
+                            'price' => $product->price ?? 0
+                        ]
+                    ]);
+                }
             }
 
             if ($request->has("images")) {

@@ -98,10 +98,12 @@
 
               
               <q-td key="name" :props="props">
-                <div class="text-grey-9 text-weight-bold">
-                  {{ props.row.name }}
+                <div class="row items-center q-gutter-x-sm">
+                  <div class="text-grey-9 text-weight-bold">
+                    {{ props.row.name }}
+                  </div>
+                  <q-badge v-if="props.row.is_default" color="orange" label="Default" />
                 </div>
-
               </q-td>
 
               <q-td key="short_description" :props="props">
@@ -110,7 +112,18 @@
                 </div>
               </q-td>
 
-    
+              <q-td key="status" :props="props">
+                <q-toggle
+                  v-model="props.row.status"
+                  true-value="active"
+                  false-value="inactive"
+                  color="positive"
+                  @update:model-value="toggleStatus(props.row)"
+                  :loading="props.row.toggling"
+                >
+                  <q-tooltip>{{ props.row.status === 'active' ? 'Active' : 'Inactive' }}</q-tooltip>
+                </q-toggle>
+              </q-td>
 
               <q-td key="actions" :props="props">
                 <div class="row q-gutter-xs no-wrap">
@@ -124,6 +137,17 @@
                     @click="navigateToEdit(props.row)"
                   >
                     <q-tooltip>Edit</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    flat
+                    dense
+                    round
+                    icon="delete"
+                    color="negative"
+                    size="sm"
+                    @click="confirmDelete(props.row)"
+                  >
+                    <q-tooltip>Delete</q-tooltip>
                   </q-btn>
                 </div>
               </q-td>
@@ -203,6 +227,13 @@ export default {
         field: 'short_description',
         align: 'left',
         sortable: false
+      },
+      {
+        name: 'status',
+        label: 'Status',
+        field: 'status',
+        align: 'center',
+        sortable: true
       },
       {
         name: 'actions',
@@ -286,6 +317,63 @@ export default {
       router.push(`/suppliers/${supplier.id}/edit`)
     }
 
+    const toggleStatus = async (supplier) => {
+      try {
+        supplier.toggling = true
+        const response = await axios.post(`/admin/suppliers/${supplier.id}/toggle-status`)
+        $q.notify({
+          type: 'positive',
+          message: response.data.message,
+          position: 'top'
+        })
+      } catch (error) {
+        // Rollback on error
+        supplier.status = supplier.status === 'active' ? 'inactive' : 'active'
+        $q.notify({
+          type: 'negative',
+          message: error.response?.data?.message || 'Failed to update status',
+          position: 'top'
+        })
+      } finally {
+        supplier.toggling = false
+      }
+    }
+
+    const confirmDelete = (supplier) => {
+      $q.dialog({
+        title: 'Confirm Delete',
+        message: `Are you sure you want to delete supplier "${supplier.name}"?`,
+        cancel: true,
+        persistent: true,
+        ok: {
+          color: 'negative',
+          label: 'Delete',
+          unelevated: true
+        }
+      }).onOk(() => {
+        deleteSupplier(supplier)
+      })
+    }
+
+    const deleteSupplier = async (supplier) => {
+      try {
+        await axios.delete(`/admin/suppliers/${supplier.id}`)
+        $q.notify({
+          type: 'positive',
+          message: 'Supplier deleted successfully',
+          position: 'top'
+        })
+        fetchSuppliers()
+      } catch (error) {
+        $q.notify({
+          type: 'negative',
+          message: error.response?.data?.message || 'Failed to delete supplier',
+          position: 'top',
+          timeout: 5000 // Give more time for the specific message
+        })
+      }
+    }
+
 
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A'
@@ -310,20 +398,19 @@ export default {
       resetFilters,
       navigateToCreate,
       navigateToEdit,
+      toggleStatus,
+      confirmDelete,
       formatDate,
-
     }
   }
 }
 </script>
 
 <style scoped>
-.products-table {
-}
-
 .ellipsis-2-lines {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;

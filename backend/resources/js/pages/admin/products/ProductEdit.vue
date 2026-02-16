@@ -753,6 +753,7 @@
                       step="0.01"
                       min="0"
                       class="editable-input"
+                      @keypress="onlyNumbers"
                     />
                   </q-td>
                 </template>
@@ -1129,7 +1130,7 @@ export default {
           suppliers: data.suppliers ? data.suppliers.map(s => ({
             id: s.id,
             name: s.name,
-            price: parseFloat(s.price)
+            price: parseFloat(s.price) || 0
           })) : [],
           price: data.price !== undefined && data.price !== null ? parseFloat(data.price) : 0,
           gp_percentage: parseFloat(data.gp_percentage) || 0,
@@ -1606,17 +1607,33 @@ export default {
         const errorFields = {
           name: 'basic',
           sku: 'basic',
+          type: 'basic',
+          status: 'basic',
+          short_description: 'basic',
+          description: 'basic',
           categories: 'categories',
           default_category_id: 'categories',
+          compatible_products: 'compatible',
           price: 'price',
           gp_percentage: 'price',
           bundle_products: 'bundle_and_price',
           bundle_gp_percentage: 'bundle_and_price',
-          slug: 'seo'
+          images: 'images',
+          existing_images: 'images',
+          deleted_images: 'images',
+          suppliers: 'suppliers',
+          slug: 'seo',
+          meta_title: 'seo',
+          meta_description: 'seo'
         }
 
+        // Check for specific field errors or wildcard matches (like bundle_products.0.qty)
         for (const [field, tabName] of Object.entries(errorFields)) {
-          if (formErrors.value[field]) {
+          const hasError = Object.keys(formErrors.value).some(key => 
+            key === field || key.startsWith(`${field}.`)
+          )
+          
+          if (hasError) {
             tab.value = tabName
             break
           }

@@ -759,6 +759,7 @@
                       step="0.01"
                       min="0"
                       class="editable-input"
+                      @keypress="onlyNumbers"
                     />
                   </q-td>
                 </template>
@@ -1526,17 +1527,33 @@ export default {
         const errorFields = {
           name: 'basic',
           sku: 'basic',
+          type: 'basic',
+          status: 'basic',
+          short_description: 'basic',
+          description: 'basic',
           categories: 'categories',
           default_category_id: 'categories',
+          compatible_products: 'compatible',
           price: 'price',
           gp_percentage: 'price',
           bundle_products: 'bundle_and_price',
           bundle_gp_percentage: 'bundle_and_price',
-          slug: 'seo'
+          images: 'images',
+          existing_images: 'images',
+          deleted_images: 'images',
+          suppliers: 'suppliers',
+          slug: 'seo',
+          meta_title: 'seo',
+          meta_description: 'seo'
         }
 
+        // Check for specific field errors or wildcard matches (like bundle_products.0.qty)
         for (const [field, tabName] of Object.entries(errorFields)) {
-          if (formErrors.value[field]) {
+          const hasError = Object.keys(formErrors.value).some(key => 
+            key === field || key.startsWith(`${field}.`)
+          )
+          
+          if (hasError) {
             tab.value = tabName
             break
           }
@@ -1728,6 +1745,32 @@ export default {
          message: 'Supplier removed'
       })
     }
+
+    const checkAndAddDefaultSupplier = async () => {
+      if (product.value.suppliers.length === 0) {
+        try {
+          const response = await axios.get('/admin/suppliers', { 
+            params: { is_default: 1, status: 'active', per_page: 1 } 
+          })
+          if (response.data.suppliers.data && response.data.suppliers.data.length > 0) {
+            const defaultSupplier = response.data.suppliers.data[0]
+            addSupplier({
+              label: defaultSupplier.name,
+              value: defaultSupplier.id,
+              ...defaultSupplier
+            })
+          }
+        } catch (error) {
+          console.error('Error fetching default supplier:', error)
+        }
+      }
+    }
+
+    watch(tab, (newTab) => {
+      if (newTab === 'suppliers') {
+        checkAndAddDefaultSupplier()
+      }
+    })
 
     const handleCancel = () => {
       router.push('/products')

@@ -31,6 +31,30 @@
                 rows="4"
               />
             </div>
+
+            <div class="col-12 col-md-6">
+              <div class="text-subtitle2 q-mb-sm text-grey-8">Status</div>
+              <q-toggle
+                v-model="form.status"
+                true-value="active"
+                false-value="inactive"
+                color="positive"
+                :label="form.status === 'active' ? 'Active' : 'Inactive'"
+                left-label
+              />
+            </div>
+
+            <div class="col-12 col-md-6">
+              <div class="text-subtitle2 q-mb-sm text-grey-8">Settings</div>
+              <q-checkbox 
+                v-model="form.is_default" 
+                label="Set as Default Supplier" 
+                color="primary"
+              />
+              <div class="text-caption text-grey-7 q-ml-md">
+                This supplier will be auto-assigned to new products.
+              </div>
+            </div>
           </div>
 
           <div class="row justify-end q-mt-lg q-gutter-sm">
@@ -70,7 +94,9 @@ const isEdit = computed(() => !!route.params.id)
 
 const form = ref({
   name: '',
-  description: ''
+  description: '',
+  status: 'active',
+  is_default: false
 })
 
 const fetchSupplier = async () => {
@@ -82,7 +108,9 @@ const fetchSupplier = async () => {
     const data = response.data.supplier
     form.value = {
       name: data.name,
-      description: data.description
+      description: data.description,
+      status: data.status,
+      is_default: !!data.is_default
     }
   } catch (error) {
     console.error('Error fetching supplier:', error)

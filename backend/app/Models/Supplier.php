@@ -8,7 +8,13 @@ class Supplier extends Model
 {
    protected $fillable = [
     'name',
-    'description'
+    'description',
+    'status',
+    'is_default'
+   ];
+
+   protected $casts = [
+    'is_default' => 'boolean'
    ];
 
    public function products()

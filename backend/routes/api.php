@@ -90,6 +90,7 @@ Route::middleware(["auth:sanctum", "role:admin"])
         Route::get("/suppliers/{id}", [SupplierController::class, 'show']);
         Route::put("/suppliers/{id}", [SupplierController::class, 'update']);
         Route::delete("/suppliers/{id}", [SupplierController::class, 'destroy']);
+        Route::post("/suppliers/{id}/toggle-status", [SupplierController::class, 'toggleStatus']);
 
         Route::get("/reports/products",[ProductReportController::class,'index']);
 

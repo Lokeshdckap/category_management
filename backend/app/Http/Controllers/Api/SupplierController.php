@@ -21,7 +21,19 @@ class SupplierController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $suppliers = $query->paginate(10);
+        if ($request->has('is_default')) {
+            $query->where('is_default', $request->is_default);
+        }
+
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
+
+        $suppliers = $query->paginate($request->get('per_page', 10));
 
         return response()->json([
             'suppliers' => $suppliers
@@ -33,7 +45,9 @@ class SupplierController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
+            'status' => 'nullable|in:active,inactive',
+            'is_default' => 'nullable|boolean'
         ]);
 
         if ($validator->fails()) {
@@ -42,10 +56,16 @@ class SupplierController extends Controller
             ], 422);
         }
 
-        $supplier = new Supplier();
-        $supplier->name = $request->name;
-        $supplier->description = $request->description;
-        $supplier->save();
+        if ($request->is_default) {
+            Supplier::where('is_default', true)->update(['is_default' => false]);
+        }
+
+        $supplier = Supplier::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'status' => $request->status ?? 'active',
+            'is_default' => $request->is_default ?? false
+        ]);
 
         return response()->json([
             'message' => "Supplier created successfully",
@@ -67,7 +87,9 @@ class SupplierController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
+            'status' => 'nullable|in:active,inactive',
+            'is_default' => 'nullable|boolean'
         ]);
 
         if ($validator->fails()) {
@@ -76,9 +98,25 @@ class SupplierController extends Controller
             ], 422);
         }
 
-        $supplier->name = $request->name;
-        $supplier->description = $request->description;
-        $supplier->save();
+        // Check if trying to inactivate a supplier with products
+        if ($request->status === 'inactive' && $supplier->status === 'active') {
+            if ($supplier->products()->count() > 0) {
+                return response()->json([
+                    'message' => "can't inactive this suplier alearey exist in associated products"
+                ], 422);
+            }
+        }
+
+        if ($request->is_default && !$supplier->is_default) {
+            Supplier::where('is_default', true)->update(['is_default' => false]);
+        }
+
+        $supplier->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'status' => $request->status ?? $supplier->status,
+            'is_default' => $request->is_default ?? $supplier->is_default
+        ]);
 
         return response()->json([
             'message' => "Supplier updated successfully",
@@ -89,10 +127,37 @@ class SupplierController extends Controller
     public function destroy($id)
     {
         $supplier = Supplier::findOrFail($id);
+
+        if ($supplier->products()->count() > 0) {
+            return response()->json([
+                'message' => "can't delete this suplier alearey exist in associated products"
+            ], 422);
+        }
+
         $supplier->delete();
 
         return response()->json([
             'message' => "Supplier deleted successfully"
+        ]);
+    }
+
+    public function toggleStatus(Request $request, $id)
+    {
+        $supplier = Supplier::findOrFail($id);
+        $newStatus = $supplier->status === 'active' ? 'inactive' : 'active';
+
+        if ($newStatus === 'inactive' && $supplier->products()->count() > 0) {
+            return response()->json([
+                'message' => "can't inactive this suplier alearey exist in associated products"
+            ], 422);
+        }
+
+        $supplier->status = $newStatus;
+        $supplier->save();
+
+        return response()->json([
+            'message' => "Supplier status updated to " . $newStatus,
+            'supplier' => $supplier
         ]);
     }
 }
