@@ -15,7 +15,7 @@ class SupplierSeeder extends Seeder
         Supplier::updateOrCreate(
             ['name' => 'Default Supplier'],
             [
-                'description' => 'System created default supplier.',
+                'description' => 'default supplier.',
                 'status' => 'active',
                 'is_default' => true
             ]
