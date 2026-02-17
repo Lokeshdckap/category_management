@@ -879,6 +879,29 @@
               </template>
               No suppliers added yet. Search and add suppliers above.
             </q-banner>
+
+            <div v-if="product.suppliers.length > 0" class="q-mt-md">
+              <div class="text-subtitle2 q-mb-sm text-grey-8">
+                <q-icon name="star" class="q-mr-xs" />
+                Default Supplier *
+              </div>
+              <q-select
+                v-model="product.default_supplier_id"
+                :options="product.suppliers.map(s => ({ label: s.name, value: s.id }))"
+                outlined
+                dense
+                label="Select Default Supplier"
+                hint="This supplier's cost will be used for 'Default Supplier' cost mode"
+                emit-value
+                map-options
+                :error="!!formErrors.default_supplier_id"
+                :error-message="formErrors.default_supplier_id"
+              >
+                 <template v-slot:prepend>
+                  <q-icon name="local_shipping" />
+                </template>
+              </q-select>
+            </div>
           </q-tab-panel>
 
           <q-tab-panel name="seo">
@@ -1120,6 +1143,7 @@ export default {
       meta_title: '',
       meta_description: '',
       slug: '',
+      default_supplier_id: null,
       status: 'active'
     })
 
@@ -1224,7 +1248,7 @@ export default {
 
       if (assignedSuppliers.length > 0) {
         if (product.value.cost_mode === 'default') {
-          const def = assignedSuppliers.find(s => s.is_default) || assignedSuppliers[0]
+          const def = assignedSuppliers.find(s => s.id === product.value.default_supplier_id) || assignedSuppliers[0]
           supplierCost = parseFloat(def.price) || 0
           dutyPercentage = parseFloat(def.duty_percentage) || 0
           shippingCost = parseFloat(def.shipping_cost) || 0
@@ -1747,6 +1771,9 @@ export default {
         formData.append('meta_title', product.value.meta_title || '')
         formData.append('meta_description', product.value.meta_description || '')
         formData.append('status', product.value.status)
+        if (product.value.default_supplier_id) {
+             formData.append('default_supplier_id', product.value.default_supplier_id)
+        }
 
         if (product.value.type === 'standard' || type === 'standard') {
           formData.append('price', calculatedPricing.value.productCost)
@@ -1941,6 +1968,22 @@ export default {
         checkAndAddDefaultSupplier()
       }
     })
+
+    watch(
+      () => product.value.suppliers,
+      (newVal) => {
+         if (newVal.length > 0 && !product.value.default_supplier_id) {
+            // If no default selected, select the first one (or the one marked is_default if available)
+            const globalDefault = newVal.find(s => s.is_default)
+            product.value.default_supplier_id = globalDefault ? globalDefault.id : newVal[0].id
+         }
+         // If selected default is gone, reset
+         if (product.value.default_supplier_id && !newVal.find(s => s.id === product.value.default_supplier_id)) {
+            product.value.default_supplier_id = newVal.length > 0 ? newVal[0].id : null
+         }
+      },
+      { deep: true }
+    )
 
     const handleCancel = () => {
       router.push('/products')

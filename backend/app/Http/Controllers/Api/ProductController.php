@@ -79,6 +79,7 @@ class ProductController extends Controller
             "categories" => "required|array|min:1",
             "categories.*" => "exists:categories,id",
             "default_category_id" => "required|exists:categories,id",
+            "default_supplier_id" => "nullable|exists:suppliers,id",
 
             "compatible_products" => "nullable|array",
             "compatible_products.*" => "exists:products,id",
@@ -176,6 +177,7 @@ class ProductController extends Controller
                 "short_description" => $request->short_description,
                 "description" => $request->description,
                 "default_category_id" => $request->default_category_id,
+                "default_supplier_id" => $request->default_supplier_id,
                 "slug" => $slug,
                 "meta_title" => $request->meta_title ?? $request->name,
                 "meta_description" => $request->meta_description ?? $request->short_description,
@@ -243,16 +245,6 @@ class ProductController extends Controller
                     ];
                 }
                 $product->suppliers()->sync($supplierData);
-            } else {
-                // Auto-assign default supplier if exists
-                $defaultSupplier = \App\Models\Supplier::where('is_default', true)->where('status', 'active')->first();
-                if ($defaultSupplier) {
-                    $product->suppliers()->sync([
-                        $defaultSupplier->id => [
-                            'price' => $product->price ?? 0
-                        ]
-                    ]);
-                }
             }
 
             if ($request->has("images")) {
@@ -357,6 +349,7 @@ class ProductController extends Controller
             'meta_title' => $product->meta_title,
             'meta_description' => $product->meta_description,
             'default_category_id' => $product->default_category_id,
+            'default_supplier_id' => $product->default_supplier_id,
             'categories' => $product->categories->pluck('id')->toArray(),
             'compatible_products' => $product->compatibleProducts,
             'images' => $product->images->map(function($image) {
@@ -430,6 +423,7 @@ class ProductController extends Controller
             "categories" => "required|array|min:1",
             "categories.*" => "exists:categories,id",
             "default_category_id" => "required|exists:categories,id",
+            "default_supplier_id" => "nullable|exists:suppliers,id",
 
             "compatible_products" => "nullable|array",
             "compatible_products.*" => "exists:products,id",
@@ -537,6 +531,7 @@ class ProductController extends Controller
                 "short_description" => $request->short_description,
                 "description" => $request->description,
                 "default_category_id" => $request->default_category_id,
+                "default_supplier_id" => $request->default_supplier_id,
                 "slug" => $slug,
                 "meta_title" => $request->meta_title ?? $request->name,
                 "meta_description" => $request->meta_description ?? $request->short_description,

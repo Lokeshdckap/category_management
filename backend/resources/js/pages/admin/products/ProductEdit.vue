@@ -873,6 +873,29 @@
               </template>
               No suppliers added yet. Search and add suppliers above.
             </q-banner>
+
+            <div v-if="product.suppliers.length > 0" class="q-mt-md">
+              <div class="text-subtitle2 q-mb-sm text-grey-8">
+                <q-icon name="star" class="q-mr-xs" />
+                Default Supplier *
+              </div>
+              <q-select
+                v-model="product.default_supplier_id"
+                :options="product.suppliers.map(s => ({ label: s.name, value: s.id }))"
+                outlined
+                dense
+                label="Select Default Supplier"
+                hint="This supplier's cost will be used for 'Default Supplier' cost mode"
+                emit-value
+                map-options
+                :error="!!formErrors.default_supplier_id"
+                :error-message="formErrors.default_supplier_id"
+              >
+                 <template v-slot:prepend>
+                  <q-icon name="local_shipping" />
+                </template>
+              </q-select>
+            </div>
           </q-tab-panel>
 
           <!-- SEO Tab -->
@@ -1112,7 +1135,8 @@ export default {
       deleted_images: [],
       meta_title: '',
       meta_description: '',
-      slug: ''
+      slug: '',
+      default_supplier_id: null
     })
 
     const categoryTree = ref([])
@@ -1226,7 +1250,7 @@ export default {
 
       if (assignedSuppliers.length > 0) {
         if (product.value.cost_mode === 'default') {
-          const def = assignedSuppliers.find(s => s.is_default) || assignedSuppliers[0]
+          const def = assignedSuppliers.find(s => s.id === product.value.default_supplier_id) || assignedSuppliers[0]
           supplierCost = parseFloat(def.price) || 0
           dutyPercentage = parseFloat(def.duty_percentage) || 0
           shippingCost = parseFloat(def.shipping_cost) || 0
@@ -1324,6 +1348,7 @@ export default {
           meta_description: data.meta_description || '',
           slug: data.slug || '',
           status: data.status || 'active',
+          default_supplier_id: data.default_supplier_id || null,
           cost_mode: data.cost_mode || 'default',
           override_shipping_cost: (data.override_shipping_cost !== null && data.override_shipping_cost !== undefined) ? parseFloat(data.override_shipping_cost) : null,
           override_rrp_cost: (data.override_rrp_cost !== null && data.override_rrp_cost !== undefined) ? parseFloat(data.override_rrp_cost) : null,
@@ -1853,6 +1878,10 @@ export default {
         formData.append('meta_description', product.value.meta_description || '')
         formData.append('status', product.value.status)
 
+        if (product.value.default_supplier_id) {
+             formData.append('default_supplier_id', product.value.default_supplier_id)
+        }
+
         if (product.value.type === 'standard') {
           formData.append('price', calculatedPricing.value.productCost)
           formData.append('gp_percentage', product.value.gp_percentage)
@@ -2045,6 +2074,21 @@ export default {
          message: 'Supplier removed'
       })
     }
+
+    watch(
+      () => product.value.suppliers,
+      (newVal) => {
+         // If selected default is gone, and we have suppliers, select the first one
+         if (product.value.default_supplier_id && !newVal.find(s => s.id === product.value.default_supplier_id)) {
+            product.value.default_supplier_id = newVal.length > 0 ? newVal[0].id : null
+         }
+         // If we have suppliers but no default, select the first one (safety net)
+         if (newVal.length > 0 && !product.value.default_supplier_id) {
+            product.value.default_supplier_id = newVal[0].id
+         }
+      },
+      { deep: true }
+    )
 
     const handleCancel = () => {
       router.push('/products')

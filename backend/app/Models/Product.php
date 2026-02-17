@@ -34,6 +34,7 @@ class Product extends Model
         'bundle_final_price',
         
         'default_category_id',
+        'default_supplier_id',
         'meta_title',
         'meta_description',
         'status',
@@ -84,6 +85,11 @@ class Product extends Model
     public function defaultCategory()
     {
         return $this->belongsTo(Category::class, 'default_category_id');
+    }
+
+    public function defaultSupplier()
+    {
+        return $this->belongsTo(Supplier::class, 'default_supplier_id');
     }
 
     public function compatibleProducts()
