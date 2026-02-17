@@ -338,28 +338,6 @@
 
               <div class="col-12 col-md-4">
                 <q-input
-                  v-model.number="product.gp_percentage"
-                  label="GP % *"
-                  outlined
-                  dense
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="1000"
-                  suffix="%"
-                  :error="!!formErrors.gp_percentage"
-                  :error-message="formErrors.gp_percentage"
-                  @keypress="onlyNumbers"
-                  @update:model-value="syncGPtoRRP"
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="percent" />
-                  </template>
-                </q-input>
-              </div>
-
-              <div class="col-12 col-md-4">
-                <q-input
                   v-model.number="product.override_shipping_cost"
                   label="Override Shipping Cost"
                   outlined
@@ -376,25 +354,68 @@
                 </q-input>
               </div>
 
-              <div class="col-12 col-md-8">
-                <q-input
-                  v-model.number="product.override_rrp_cost"
-                  label="Override RRP Cost (Selling Price)"
-                  outlined
-                  dense
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  prefix="$"
-                  clearable
-                  @update:model-value="syncRRPtoGP"
-                  :error="!!formErrors.override_rrp_cost || !!formErrors.price"
-                  :error-message="formErrors.override_rrp_cost || formErrors.price"
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="payments" />
-                  </template>
-                </q-input>
+              <div class="col-12">
+                <div class="row q-col-gutter-md">
+                   <!-- GP Percentage -->
+                  <div class="col-12 col-md-4">
+                    <q-input
+                      v-model.number="product.gp_percentage"
+                      label="Gross Profit Percentage"
+                      outlined
+                      dense
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1000"
+                      suffix="%"
+                      :error="!!formErrors.gp_percentage"
+                      :error-message="formErrors.gp_percentage"
+                      @keypress="onlyNumbers"
+                    >
+                      <template v-slot:prepend>
+                        <q-icon name="percent" />
+                      </template>
+                    </q-input>
+                  </div>
+
+                  <!-- Calculated RRP Cost (Read Only) -->
+                  <div class="col-12 col-md-4">
+                     <q-input
+                      :model-value="calculatedPricing.sellingPrice ? calculatedPricing.sellingPrice.toFixed(2) : '0.00'"
+                      label="RRP Cost"
+                      outlined
+                      dense
+                      readonly
+                      bg-color="grey-2"
+                      prefix="$"
+                    >
+                      <template v-slot:prepend>
+                        <q-icon name="calculate" />
+                      </template>
+                    </q-input>
+                  </div>
+
+                  <!-- Override RRP Cost -->
+                  <div class="col-12 col-md-4">
+                    <q-input
+                      v-model.number="product.override_rrp_cost"
+                      label="Override RRP Cost"
+                      outlined
+                      dense
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      prefix="$"
+                      clearable
+                      :error="!!formErrors.override_rrp_cost || !!formErrors.price"
+                      :error-message="formErrors.override_rrp_cost || formErrors.price"
+                    >
+                      <template v-slot:prepend>
+                        <q-icon name="payments" />
+                      </template>
+                    </q-input>
+                  </div>
+                </div>
               </div>
 
               <!-- Calculation Summary Cards -->
@@ -1255,11 +1276,14 @@ export default {
           dutyPercentage = parseFloat(def.duty_percentage) || 0
           shippingCost = parseFloat(def.shipping_cost) || 0
         } else {
-          // Average
+          // Average Price, but use DEFAULT Supplier's Duty and Shipping
           const count = assignedSuppliers.length
           supplierCost = assignedSuppliers.reduce((sum, s) => sum + (parseFloat(s.price) || 0), 0) / count
-          dutyPercentage = assignedSuppliers.reduce((sum, s) => sum + (parseFloat(s.duty_percentage) || 0), 0) / count
-          shippingCost = assignedSuppliers.reduce((sum, s) => sum + (parseFloat(s.shipping_cost) || 0), 0) / count
+          
+          // Use default supplier for duty and shipping
+          const def = assignedSuppliers.find(s => s.id === product.value.default_supplier_id) || assignedSuppliers[0]
+          dutyPercentage = parseFloat(def.duty_percentage) || 0
+          shippingCost = parseFloat(def.shipping_cost) || 0
         }
       }
 
@@ -1287,19 +1311,7 @@ export default {
       }
     })
 
-    const syncGPtoRRP = (val) => {
-      const productCost = calculatedPricing.value.productCost
-      if (productCost > 0) {
-        product.value.override_rrp_cost = parseFloat((productCost * (1 + (parseFloat(val) || 0) / 100)).toFixed(2))
-      }
-    }
 
-    const syncRRPtoGP = (val) => {
-      const productCost = calculatedPricing.value.productCost
-      if (productCost > 0 && val !== null && val !== '') {
-        product.value.gp_percentage = parseFloat((((parseFloat(val) / productCost) - 1) * 100).toFixed(2))
-      }
-    }
 
     const onlyNumbers = (evt) => {
       const charCode = evt.which ? evt.which : evt.keyCode
@@ -2167,8 +2179,7 @@ export default {
       filterSuppliers,
       addSupplier,
       removeSupplier,
-      syncGPtoRRP,
-      syncRRPtoGP
+
     }
   }
 }

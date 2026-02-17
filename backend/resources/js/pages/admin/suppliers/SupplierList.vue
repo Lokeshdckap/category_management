@@ -102,7 +102,7 @@
                   <div class="text-grey-9 text-weight-bold">
                     {{ props.row.name }}
                   </div>
-                  <q-badge v-if="props.row.is_default" color="orange" label="Default" />
+
                 </div>
               </q-td>
 

@@ -70,17 +70,7 @@
               />
             </div>
 
-            <div class="col-12 col-md-6">
-              <div class="text-subtitle2 q-mb-sm text-grey-8">Settings</div>
-              <q-checkbox 
-                v-model="form.is_default" 
-                label="Set as Default Supplier" 
-                color="primary"
-              />
-              <div class="text-caption text-grey-7 q-ml-md">
-                This supplier will be auto-assigned to new products.
-              </div>
-            </div>
+
           </div>
 
           <div class="row justify-end q-mt-lg q-gutter-sm">
@@ -122,7 +112,7 @@ const form = ref({
   name: '',
   description: '',
   status: 'active',
-  is_default: false,
+
   duty_percentage: 0,
   shipping_cost: 0
 })
@@ -138,7 +128,7 @@ const fetchSupplier = async () => {
       name: data.name,
       description: data.description,
       status: data.status,
-      is_default: !!data.is_default,
+
       duty_percentage: parseFloat(data.duty_percentage) || 0,
       shipping_cost: parseFloat(data.shipping_cost) || 0
     }
