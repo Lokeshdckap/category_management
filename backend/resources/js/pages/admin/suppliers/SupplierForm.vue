@@ -31,6 +31,32 @@
                 rows="4"
               />
             </div>
+            <div class="col-12 col-md-6">
+              <q-input 
+                v-model.number="form.duty_percentage" 
+                label="Duty %" 
+                outlined 
+                dense 
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                suffix="%"
+              />
+            </div>
+
+            <div class="col-12 col-md-6">
+              <q-input 
+                v-model.number="form.shipping_cost" 
+                label="Default Shipping Cost" 
+                outlined 
+                dense 
+                type="number"
+                step="0.01"
+                min="0"
+                prefix="$"
+              />
+            </div>
 
             <div class="col-12 col-md-6">
               <div class="text-subtitle2 q-mb-sm text-grey-8">Status</div>
@@ -96,7 +122,9 @@ const form = ref({
   name: '',
   description: '',
   status: 'active',
-  is_default: false
+  is_default: false,
+  duty_percentage: 0,
+  shipping_cost: 0
 })
 
 const fetchSupplier = async () => {
@@ -110,7 +138,9 @@ const fetchSupplier = async () => {
       name: data.name,
       description: data.description,
       status: data.status,
-      is_default: !!data.is_default
+      is_default: !!data.is_default,
+      duty_percentage: parseFloat(data.duty_percentage) || 0,
+      shipping_cost: parseFloat(data.shipping_cost) || 0
     }
   } catch (error) {
     console.error('Error fetching supplier:', error)

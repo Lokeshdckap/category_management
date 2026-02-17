@@ -21,7 +21,9 @@
           label="Category Name *" 
           outlined 
           dense 
-          :rules="[val => !!val || 'Name is required']"
+          :error="!!formErrors.name"
+          :error-message="formErrors.name"
+          lazy-rules
         />
 
          <div class="row items-center">
@@ -44,7 +46,8 @@
     dense 
     :disable="form.slug_status"
     :hint="form.slug_status ? 'Auto-generated from category name' : 'Enter custom URL slug'"
-    :rules="[val => !!val || 'Slug is required']"
+    :error="!!formErrors.slug"
+    :error-message="formErrors.slug"
     :bg-color="form.slug_status ? 'grey-2' : 'white'"
   >
     <template v-slot:append>
@@ -71,6 +74,8 @@
           dense
           clearable
           hint="Select a parent category (optional)"
+          :error="!!formErrors.parent_id"
+          :error-message="formErrors.parent_id"
         />
 
         <div>
@@ -264,6 +269,8 @@
           counter
           maxlength="60"
           hint="Recommended: 50-60 characters"
+          :error="!!formErrors.meta_title"
+          :error-message="formErrors.meta_title"
         />
         
         <q-input 
@@ -276,6 +283,8 @@
           counter
           maxlength="160"
           hint="Recommended: 150-160 characters"
+          :error="!!formErrors.meta_description"
+          :error-message="formErrors.meta_description"
         />
 
          <div v-if="form.slug" class="q-mt-md">
@@ -351,6 +360,7 @@ const form = ref({
   meta_description: ''
 })
 
+const formErrors = ref({})
 const featuredPreview = ref(null)
 const bannerPreview = ref(null)
 
@@ -398,7 +408,7 @@ function generateSlug() {
   if (form.value.parent_id) {
     const parent = parentOptions.value.find(p => p.id === form.value.parent_id)
     if (parent && parent.slug) {
-      baseSlug = parent.slug + '-' + baseSlug
+      baseSlug = parent.slug + '/' + baseSlug
     }
   }
 
@@ -455,7 +465,17 @@ async function fetchParentCategories() {
 
 
 async function submitForm () {
-  if (!form.value.name || !form.value.slug) {
+  formErrors.value = {}
+  
+  if (!form.value.name) {
+    formErrors.value.name = 'Name is required'
+  }
+  
+  if (!form.value.slug_status && !form.value.slug) {
+    formErrors.value.slug = 'Slug is required'
+  }
+
+  if (Object.keys(formErrors.value).length > 0) {
     $q.notify({
       type: 'warning',
       message: 'Please fill in all required fields'
@@ -520,14 +540,25 @@ async function submitForm () {
   } catch (error) {
     console.error(error)
 
-    const message =
-      error.response?.data?.message || 'Failed to save category'
-
-    $q.notify({
-      type: 'negative',
-      message,
-      position: 'top'
-    })
+    if (error.response?.status === 422 && error.response.data?.errors) {
+      const errors = error.response.data.errors
+      Object.keys(errors).forEach(key => {
+        formErrors.value[key] = errors[key][0]
+      })
+      
+      $q.notify({
+        type: 'negative',
+        message: 'Validation failed. Please check the form.',
+        position: 'top'
+      })
+    } else {
+      const message = error.response?.data?.message || 'Failed to save category'
+      $q.notify({
+        type: 'negative',
+        message,
+        position: 'top'
+      })
+    }
   } finally {
     loading.value = false
   }

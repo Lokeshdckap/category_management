@@ -97,6 +97,12 @@ class ProductController extends Controller
             "suppliers" => "nullable|array",
             "suppliers.*.id" => "required|exists:suppliers,id",
             "suppliers.*.price" => "nullable|numeric|min:0",
+
+            "cost_mode" => "nullable|in:default,average",
+            "override_shipping_cost" => "nullable|numeric|min:0",
+            "rrp_cost" => "nullable|numeric|min:0",
+            "override_rrp_cost" => "nullable|numeric|min:0",
+            "product_cost" => "nullable|numeric|min:0",
         ];
 
         if ($request->type === 'standard') {
@@ -174,7 +180,12 @@ class ProductController extends Controller
                 "meta_title" => $request->meta_title ?? $request->name,
                 "meta_description" => $request->meta_description ?? $request->short_description,
                 "status" => $request->status ?? "active",
-                "price" => $request->price ?? 0
+                "price" => $request->price ?? 0,
+                "cost_mode" => $request->cost_mode ?? "default",
+                "override_shipping_cost" => $request->override_shipping_cost,
+                "rrp_cost" => $request->rrp_cost ?? 0,
+                "override_rrp_cost" => $request->override_rrp_cost,
+                "product_cost" => $request->product_cost ?? 0,
             ];
 
             if ($request->type === 'standard') {
@@ -363,9 +374,17 @@ class ProductController extends Controller
                 return [
                     'id' => $supplier->id,
                     'name' => $supplier->name,
-                    'price' => $supplier->pivot->price
+                    'price' => $supplier->pivot->price,
+                    'duty_percentage' => $supplier->duty_percentage,
+                    'shipping_cost' => $supplier->shipping_cost,
+                    'is_default' => $supplier->is_default
                 ];
             }),
+            'cost_mode' => $product->cost_mode,
+            'override_shipping_cost' => $product->override_shipping_cost,
+            'rrp_cost' => $product->rrp_cost,
+            'override_rrp_cost' => $product->override_rrp_cost,
+            'product_cost' => $product->product_cost,
         ];
 
         if ($product->type === 'standard') {
@@ -440,6 +459,12 @@ class ProductController extends Controller
             "suppliers" => "nullable|array",
             "suppliers.*.id" => "required|exists:suppliers,id",
             "suppliers.*.price" => "nullable|numeric|min:0",
+
+            "cost_mode" => "nullable|in:default,average",
+            "override_shipping_cost" => "nullable|numeric|min:0",
+            "rrp_cost" => "nullable|numeric|min:0",
+            "override_rrp_cost" => "nullable|numeric|min:0",
+            "product_cost" => "nullable|numeric|min:0",
         ];
 
         if ($request->type === 'standard') {
@@ -516,7 +541,12 @@ class ProductController extends Controller
                 "meta_title" => $request->meta_title ?? $request->name,
                 "meta_description" => $request->meta_description ?? $request->short_description,
                 "status" => $request->status ?? $product->status,
-                "price" => $request->price ?? $product->price
+                "price" => $request->price ?? $product->price,
+                "cost_mode" => $request->cost_mode ?? $product->cost_mode,
+                "override_shipping_cost" => $request->override_shipping_cost,
+                "rrp_cost" => $request->rrp_cost ?? $product->rrp_cost,
+                "override_rrp_cost" => $request->override_rrp_cost,
+                "product_cost" => $request->product_cost ?? $product->product_cost,
             ];
 
             if ($request->type === 'standard') {

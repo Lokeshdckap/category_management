@@ -10,11 +10,15 @@ class Supplier extends Model
     'name',
     'description',
     'status',
-    'is_default'
+    'is_default',
+    'duty_percentage',
+    'shipping_cost'
    ];
 
    protected $casts = [
-    'is_default' => 'boolean'
+    'is_default' => 'boolean',
+    'duty_percentage' => 'decimal:2',
+    'shipping_cost' => 'decimal:2'
    ];
 
    public function products()

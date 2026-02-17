@@ -23,6 +23,12 @@ class Product extends Model
         'gp_percentage',
         'total_price',
         
+        'cost_mode',
+        'override_shipping_cost',
+        'rrp_cost',
+        'override_rrp_cost',
+        'product_cost',
+        
         'bundle_subtotal',
         'bundle_gp_percentage',
         'bundle_final_price',
@@ -38,6 +44,10 @@ class Product extends Model
         'price' => 'decimal:2',
         'gp_percentage' => 'decimal:2',
         'total_price' => 'decimal:2',
+        'override_shipping_cost' => 'decimal:2',
+        'rrp_cost' => 'decimal:2',
+        'override_rrp_cost' => 'decimal:2',
+        'product_cost' => 'decimal:2',
         'bundle_subtotal' => 'decimal:2',
         'bundle_gp_percentage' => 'decimal:2',
         'bundle_final_price' => 'decimal:2',

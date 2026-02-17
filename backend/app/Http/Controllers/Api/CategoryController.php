@@ -240,7 +240,7 @@ class CategoryController extends Controller
         if ($data['slug_status']) {
             $baseSlug = Str::slug($request->name);
         } else {
-            $baseSlug = $request->slug;
+            $baseSlug = basename($request->slug);
         }
 
         $data['slug'] = $this->generateUniqueSlug($baseSlug, $data['parent_id']);
@@ -281,10 +281,11 @@ class CategoryController extends Controller
         }
 
         $slugChanged = false;
+        
         if ($data['slug_status']) {
             $newBaseSlug = Str::slug($request->name);
         } else {
-            $newBaseSlug = $request->slug;
+            $newBaseSlug = basename($request->slug);
         }
 
         if ($newBaseSlug !== $category->slug || $data['parent_id'] !== $category->parent_id) {
@@ -341,7 +342,7 @@ class CategoryController extends Controller
                 return $fullSlug;
             }
 
-            $fullSlug = $originalSlug . "-" . $count;
+            $fullSlug = $originalSlug . "/" . $count;
             $count++;
         }
     }
@@ -392,9 +393,17 @@ class CategoryController extends Controller
         $children = $category->children;
 
         foreach ($children as $child) {
-            $newSlugUrl = $category->slug_url . '/' . $child->slug;
-            $child->update(['slug_url' => $newSlugUrl]);
-
+            // Get the leaf part of the child slug
+            $slugParts = explode('/', $child->slug);
+            $leafSlug = end($slugParts);
+            
+            $newSlug = $leafSlug;
+            $newSlugUrl = $category->slug_url . '/' . $leafSlug;
+            
+            $child->update([
+                'slug' => $newSlug,
+                'slug_url' => $newSlugUrl
+            ]);
 
             if ($child->children()->count() > 0) {
                 $this->updateChildrenSlugUrls($child);

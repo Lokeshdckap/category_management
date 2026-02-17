@@ -101,10 +101,10 @@ class Category extends Model
             }
         }
         
-        return implode('-', $slugParts);
+        return implode('/', $slugParts);
     }
 
-     public function getFullSlugUrlAttribute()
+    public function getFullSlugUrlAttribute()
     {
         return $this->slug_url;
     }

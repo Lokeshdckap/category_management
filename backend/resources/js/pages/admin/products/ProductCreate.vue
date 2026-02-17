@@ -319,30 +319,28 @@
 
           <!-- Standard Product - Price Tab -->
           <q-tab-panel name="price" v-if="type == 'standard'">
-            <div class="text-h6 q-mb-md">Price Information</div>
+            <div class="text-h6 q-mb-md">Price & Cost Information</div>
 
             <div class="row q-col-gutter-md">
-              <div class="col-12 col-md-6">
-                <q-input
-                  v-model.number="product.price"
-                  label="Base Price *"
-                  outlined
-                  dense
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  prefix="$"
-                  :error="!!formErrors.price"
-                  :error-message="formErrors.price"
-                  @keypress="onlyNumbers"
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="attach_money" />
-                  </template>
-                </q-input>
+              <!-- Cost Mode and Base Settings -->
+              <div class="col-12 col-md-4">
+                <div class="text-subtitle2 q-mb-sm text-grey-8">Cost Mode</div>
+                <q-btn-toggle
+                  v-model="product.cost_mode"
+                  spread
+                  no-caps
+                  unelevated
+                  toggle-color="primary"
+                  color="white"
+                  text-color="primary"
+                  :options="[
+                    {label: 'Default Supplier', value: 'default'},
+                    {label: 'Average Cost', value: 'average'}
+                  ]"
+                />
               </div>
 
-              <div class="col-12 col-md-6">
+              <div class="col-12 col-md-4">
                 <q-input
                   v-model.number="product.gp_percentage"
                   label="GP % *"
@@ -351,11 +349,12 @@
                   type="number"
                   step="0.01"
                   min="0"
-                  max="100"
+                  max="1000"
                   suffix="%"
                   :error="!!formErrors.gp_percentage"
                   :error-message="formErrors.gp_percentage"
                   @keypress="onlyNumbers"
+                  @update:model-value="syncGPtoRRP"
                 >
                   <template v-slot:prepend>
                     <q-icon name="percent" />
@@ -363,29 +362,110 @@
                 </q-input>
               </div>
 
+              <div class="col-12 col-md-4">
+                <q-input
+                  v-model.number="product.override_shipping_cost"
+                  label="Override Shipping Cost"
+                  outlined
+                  dense
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  prefix="$"
+                  clearable
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="local_shipping" />
+                  </template>
+                </q-input>
+              </div>
+
+              <div class="col-12 col-md-8">
+                <q-input
+                  v-model.number="product.override_rrp_cost"
+                  label="Override RRP Cost (Selling Price)"
+                  outlined
+                  dense
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  prefix="$"
+                  clearable
+                  @update:model-value="syncRRPtoGP"
+                  :error="!!formErrors.override_rrp_cost || !!formErrors.price"
+                  :error-message="formErrors.override_rrp_cost || formErrors.price"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="payments" />
+                  </template>
+                </q-input>
+              </div>
+
+              <!-- Calculation Summary Cards -->
               <div class="col-12">
-                <q-card flat bordered class="bg-blue-1">
-                  <q-card-section>
-                    <div class="text-subtitle2 text-primary q-mb-sm">
-                      <q-icon name="calculate" class="q-mr-xs" />
-                      Pricing Summary
-                    </div>
-                    <div class="row q-col-gutter-md q-mt-sm">
-                      <div class="col-4">
-                        <div class="text-caption text-grey-7">Base Price</div>
-                        <div class="text-h6 text-grey-9">${{ parseFloat(product.price || 0).toFixed(2) }}</div>
-                      </div>
-                      <div class="col-4">
-                        <div class="text-caption text-grey-7">Gross Profit %</div>
-                        <div class="text-h6 text-grey-9">{{ parseFloat(product.gp_percentage || 0).toFixed(2) }}%</div>
-                      </div>
-                      <div class="col-4">
-                        <div class="text-caption text-grey-7">Total Selling Price</div>
-                        <div class="text-h6 text-primary">${{ calculateStandardTotalPrice.toFixed(2) }}</div>
-                      </div>
-                    </div>
-                  </q-card-section>
-                </q-card>
+                <div class="row q-col-gutter-md">
+                  <div class="col-12 col-md-8">
+                    <q-card flat bordered class="bg-blue-grey-1">
+                      <q-card-section>
+                        <div class="text-subtitle2 text-blue-grey-9 q-mb-md">
+                          <q-icon name="analytics" class="q-mr-xs" />
+                          Cost Breakdown ({{ product.cost_mode === 'default' ? 'Default Supplier' : 'Average' }})
+                        </div>
+                        <div class="row q-col-gutter-sm text-center">
+                          <div class="col-3">
+                            <div class="text-caption text-grey-7">Supplier Cost</div>
+                            <div class="text-subtitle1 text-weight-medium">${{ calculatedPricing.supplierCost.toFixed(2) }}</div>
+                          </div>
+                          <div class="col-2">
+                            <div class="text-caption text-grey-7">Duty</div>
+                            <div class="text-subtitle1 text-weight-medium">{{ calculatedPricing.dutyPercentage.toFixed(2) }}%</div>
+                          </div>
+                          <div class="col-2">
+                            <div class="text-caption text-grey-7">Duty Cost</div>
+                            <div class="text-subtitle1 text-weight-medium">${{ calculatedPricing.dutyCost.toFixed(2) }}</div>
+                          </div>
+                          <div class="col-2">
+                            <div class="text-caption text-grey-7">Shipping</div>
+                            <div class="text-subtitle1 text-weight-medium">${{ calculatedPricing.shippingCost.toFixed(2) }}</div>
+                          </div>
+                          <div class="col-3">
+                            <div class="text-caption text-blue-grey-9 text-weight-bold">Product Cost</div>
+                            <div class="text-h6 text-blue-grey-10">${{ calculatedPricing.productCost.toFixed(2) }}</div>
+                          </div>
+                        </div>
+                      </q-card-section>
+                    </q-card>
+                  </div>
+
+                  <div class="col-12 col-md-4">
+                    <q-card flat bordered class="bg-primary text-white">
+                      <q-card-section>
+                        <div class="text-subtitle2 q-mb-md">
+                          <q-icon name="payments" class="q-mr-xs" />
+                          Pricing Summary
+                        </div>
+                        <div class="row items-center justify-between q-mb-xs">
+                          <div class="text-caption">Calculated RRP</div>
+                          <div class="text-h5 text-weight-bold">${{ calculatedPricing.sellingPrice.toFixed(2) }}</div>
+                        </div>
+                        <q-separator dark class="q-my-sm" />
+                        <div class="row items-center justify-between">
+                          <div class="text-caption">Final RRP</div>
+                          <div class="text-h6">${{ calculatedPricing.finalRRP.toFixed(2) }}</div>
+                        </div>
+                      </q-card-section>
+                    </q-card>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12" v-if="product.suppliers.length === 0">
+                <q-banner dense class="bg-warning text-white rounded-borders">
+                  <template v-slot:avatar>
+                    <q-icon name="warning" />
+                  </template>
+                  No suppliers assigned. Product cost will be $0.00. Please assign suppliers in the "Suppliers" tab.
+                </q-banner>
               </div>
             </div>
           </q-tab-panel>
@@ -764,6 +844,18 @@
                   </q-td>
                 </template>
 
+                <template v-slot:body-cell-duty_percentage="props">
+                  <q-td :props="props">
+                    <div class="text-caption">{{ props.row.duty_percentage }}%</div>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-shipping_cost="props">
+                  <q-td :props="props">
+                    <div class="text-caption">${{ props.row.shipping_cost }}</div>
+                  </q-td>
+                </template>
+
                 <template v-slot:body-cell-actions="props">
                   <q-td :props="props">
                     <q-btn
@@ -1016,8 +1108,12 @@ export default {
       compatible_products: [],
       bundle_products: [],
       price: 0, 
-      total_price:0,
+      product_cost: 0,
       gp_percentage: 0, 
+      cost_mode: 'default',
+      override_shipping_cost: null,
+      rrp_cost: 0,
+      override_rrp_cost: null,
       bundle_gp_percentage: 0,
       images: [],
       suppliers: [],
@@ -1055,6 +1151,8 @@ export default {
     const supplierColumns = [
       { name: 'name', label: 'Supplier Name', field: 'name', align: 'left' },
       { name: 'price', label: 'Price', field: 'price', align: 'left' },
+      { name: 'duty_percentage', label: 'Duty %', field: 'duty_percentage', align: 'left' },
+      { name: 'shipping_cost', label: 'Shipping', field: 'shipping_cost', align: 'left' },
       { name: 'actions', label: 'Actions', align: 'center' }
     ]
 
@@ -1114,6 +1212,68 @@ export default {
       const bundleGP = parseFloat(product.value.bundle_gp_percentage) || 0
       return subtotal + (subtotal * bundleGP / 100)
     })
+
+    const calculatedPricing = computed(() => {
+      if (type !== 'standard') return {}
+      
+      let supplierCost = 0
+      let dutyPercentage = 0
+      let shippingCost = 0
+
+      const assignedSuppliers = product.value.suppliers || []
+
+      if (assignedSuppliers.length > 0) {
+        if (product.value.cost_mode === 'default') {
+          const def = assignedSuppliers.find(s => s.is_default) || assignedSuppliers[0]
+          supplierCost = parseFloat(def.price) || 0
+          dutyPercentage = parseFloat(def.duty_percentage) || 0
+          shippingCost = parseFloat(def.shipping_cost) || 0
+        } else {
+          // Average
+          const count = assignedSuppliers.length
+          supplierCost = assignedSuppliers.reduce((sum, s) => sum + (parseFloat(s.price) || 0), 0) / count
+          dutyPercentage = assignedSuppliers.reduce((sum, s) => sum + (parseFloat(s.duty_percentage) || 0), 0) / count
+          shippingCost = assignedSuppliers.reduce((sum, s) => sum + (parseFloat(s.shipping_cost) || 0), 0) / count
+        }
+      }
+
+      const dutyCost = supplierCost * (dutyPercentage / 100)
+      const finalShippingCost = (product.value.override_shipping_cost !== null && product.value.override_shipping_cost !== undefined && product.value.override_shipping_cost !== '')
+        ? parseFloat(product.value.override_shipping_cost) || 0
+        : shippingCost
+
+      const productCost = supplierCost + dutyCost + finalShippingCost
+      
+      const sellingPrice = productCost + (productCost * (parseFloat(product.value.gp_percentage) || 0) / 100)
+
+      const finalRRP = (product.value.override_rrp_cost !== null && product.value.override_rrp_cost !== undefined && product.value.override_rrp_cost !== '')
+        ? parseFloat(product.value.override_rrp_cost) || 0
+        : sellingPrice
+
+      return {
+        supplierCost,
+        dutyPercentage,
+        dutyCost,
+        shippingCost: finalShippingCost,
+        productCost,
+        sellingPrice,
+        finalRRP
+      }
+    })
+
+    const syncGPtoRRP = (val) => {
+      const productCost = calculatedPricing.value.productCost
+      if (productCost > 0) {
+        product.value.override_rrp_cost = parseFloat((productCost * (1 + (parseFloat(val) || 0) / 100)).toFixed(2))
+      }
+    }
+
+    const syncRRPtoGP = (val) => {
+      const productCost = calculatedPricing.value.productCost
+      if (productCost > 0 && val !== null && val !== '') {
+        product.value.gp_percentage = parseFloat((((parseFloat(val) / productCost) - 1) * 100).toFixed(2))
+      }
+    }
 
     const onlyNumbers = (evt) => {
       const charCode = evt.which ? evt.which : evt.keyCode
@@ -1502,11 +1662,11 @@ export default {
       }
 
       if (type === 'standard') {
-        if (!product.value.price || product.value.price <= 0) {
-          formErrors.value.price = 'Price is required for standard products'
+        if (calculatedPricing.value.productCost <= 0) {
+          formErrors.value.price = 'At least one supplier must be assigned with a price > 0'
         }
-        if (product.value.gp_percentage < 0 || product.value.gp_percentage > 100) {
-          formErrors.value.gp_percentage = 'GP% must be between 0 and 100'
+        if (product.value.gp_percentage < 0 || product.value.gp_percentage > 1000) {
+          formErrors.value.gp_percentage = 'GP% must be between 0 and 1000'
         }
       }
 
@@ -1588,10 +1748,14 @@ export default {
         formData.append('meta_description', product.value.meta_description || '')
         formData.append('status', product.value.status)
 
-        if (type === 'standard') {
-          formData.append('price', product.value.price)
+        if (product.value.type === 'standard' || type === 'standard') {
+          formData.append('price', calculatedPricing.value.productCost)
           formData.append('gp_percentage', product.value.gp_percentage)
-          formData.append('total_price', calculateStandardTotalPrice.value)
+          formData.append('cost_mode', product.value.cost_mode)
+          formData.append('override_shipping_cost', product.value.override_shipping_cost !== null ? product.value.override_shipping_cost : '')
+          formData.append('rrp_cost', calculatedPricing.value.sellingPrice)
+          formData.append('override_rrp_cost', product.value.override_rrp_cost !== null ? product.value.override_rrp_cost : '')
+          formData.append('product_cost', calculatedPricing.value.productCost)
         }
 
         if (type === 'bundle') {
@@ -1656,10 +1820,13 @@ export default {
           })
           scrollToFirstError()
           
+          const backendErrors = Object.values(error.response.data.errors).map(e => e[0]).join('. ')
+          
           $q.notify({
             type: 'negative',
-            message: 'Please fix the errors in the form',
-            position: 'top'
+            message: `Validation failed: ${backendErrors}`,
+            position: 'top',
+            timeout: 5000
           })
         } else {
           let errorMessage = 'Failed to save product'
@@ -1727,7 +1894,10 @@ export default {
       product.value.suppliers.push({
         id: supplier.value,
         name: supplier.label,
-        price: product.value.price || 0 
+        price: product.value.price || 0,
+        duty_percentage: parseFloat(supplier.duty_percentage) || 0,
+        shipping_cost: parseFloat(supplier.shipping_cost) || 0,
+        is_default: !!supplier.is_default
       })
       
       selectedSupplier.value = null
@@ -1812,6 +1982,7 @@ export default {
       bundleTotals,
       calculateStandardTotalPrice,
       calculateBundleFinalPrice,
+      calculatedPricing,
       formErrors,
       getCategoryLabel,
       formatText,
@@ -1825,19 +1996,6 @@ export default {
       isProductAlreadyAdded,
       addBundleProduct,
       removeBundleProduct,
-      selectedSupplier,
-      supplierOptions,
-      supplierColumns,
-      filterSuppliers,
-      addSupplier,
-      removeCompatibleProduct,
-      selectedSupplier,
-      supplierOptions,
-      supplierColumns,
-      filterSuppliers,
-      addSupplier,
-      removeSupplier,
-      isProductAlreadyAdded,
       isBundleProductAlreadyAdded,
       updateBundleTotals,
       setPrimaryImage,
@@ -1851,6 +2009,14 @@ export default {
       handleSave,
       handleCancel,
       onlyNumbers,
+      selectedSupplier,
+      supplierOptions,
+      supplierColumns,
+      filterSuppliers,
+      addSupplier,
+      removeSupplier,
+      syncGPtoRRP,
+      syncRRPtoGP,
       type
     }
   }

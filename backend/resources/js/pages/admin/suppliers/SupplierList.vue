@@ -228,6 +228,7 @@ export default {
         align: 'left',
         sortable: false
       },
+      
       {
         name: 'status',
         label: 'Status',

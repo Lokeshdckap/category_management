@@ -47,7 +47,9 @@ class SupplierController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'nullable|in:active,inactive',
-            'is_default' => 'nullable|boolean'
+            'is_default' => 'nullable|boolean',
+            'duty_percentage' => 'nullable|numeric|min:0|max:100',
+            'shipping_cost' => 'nullable|numeric|min:0'
         ]);
 
         if ($validator->fails()) {
@@ -64,7 +66,9 @@ class SupplierController extends Controller
             'name' => $request->name,
             'description' => $request->description,
             'status' => $request->status ?? 'active',
-            'is_default' => $request->is_default ?? false
+            'is_default' => $request->is_default ?? false,
+            'duty_percentage' => $request->duty_percentage ?? 0,
+            'shipping_cost' => $request->shipping_cost ?? 0
         ]);
 
         return response()->json([
@@ -89,7 +93,9 @@ class SupplierController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'nullable|in:active,inactive',
-            'is_default' => 'nullable|boolean'
+            'is_default' => 'nullable|boolean',
+            'duty_percentage' => 'nullable|numeric|min:0|max:100',
+            'shipping_cost' => 'nullable|numeric|min:0'
         ]);
 
         if ($validator->fails()) {
@@ -115,7 +121,9 @@ class SupplierController extends Controller
             'name' => $request->name,
             'description' => $request->description,
             'status' => $request->status ?? $supplier->status,
-            'is_default' => $request->is_default ?? $supplier->is_default
+            'is_default' => $request->is_default ?? $supplier->is_default,
+            'duty_percentage' => $request->duty_percentage ?? $supplier->duty_percentage,
+            'shipping_cost' => $request->shipping_cost ?? $supplier->shipping_cost
         ]);
 
         return response()->json([
