@@ -64,6 +64,16 @@ const routes = [
                 name: 'ProductEdit',
                 component: () => import('pages/admin/products/ProductEdit.vue')
             },
+            {
+                path: 'customer-groups',
+                name: 'CustomerGroupList',
+                component: () => import('pages/admin/customers/CustomerGroupList.vue')
+            },
+            {
+                path: 'customers',
+                name: 'CustomerList',
+                component: () => import('pages/admin/customers/CustomerList.vue')
+            },
         ]
     },
     {

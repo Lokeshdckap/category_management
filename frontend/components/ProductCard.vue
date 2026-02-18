@@ -13,7 +13,7 @@
         <h3 class="product-title">{{ product.name }}</h3>
         <p class="product-category" v-if="categoryName">{{ categoryName }}</p>
         <div class="product-footer">
-          <span class="product-price">${{ product.price.toFixed(2) }}</span>
+          <span class="product-price">${{ displayPrice.toFixed(2) }}</span>
           <button class="add-to-cart-btn" @click.stop.prevent="handleAddToCart">Add to Cart</button>
         </div>
       </div>
@@ -22,12 +22,23 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Product } from '../composables/useProducts';
+import { useProducts } from '../composables/useProducts';
+import { useAuth } from '../composables/useAuth';
 
 const props = defineProps<{
   product: Product;
   categoryName?: string;
 }>();
+
+const { getProductPrice } = useProducts();
+const { user } = useAuth();
+
+const displayPrice = computed(() => {
+  return getProductPrice(props.product, user.value?.customer_group_id);
+});
+
 const handleAddToCart = () => {
   // Logic for adding to cart
   alert(`Added ${props.product.name} to cart!`);

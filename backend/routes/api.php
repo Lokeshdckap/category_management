@@ -7,13 +7,27 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\ProductReportController;
+use App\Http\Controllers\Api\CustomerGroupController;
+use App\Http\Controllers\Api\CustomerController;
 
 
 
 
 use App\Http\Controllers\Api\FrontendController;
+use App\Http\Controllers\Api\Auth\CustomerAuthController;
 
 Route::post("/login", LoginController::class);
+
+Route::post("/customer/register", [CustomerAuthController::class, 'register']);
+Route::post("/customer/login", [CustomerAuthController::class, 'login']);
+
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+})->name('login');
+
+Route::middleware('auth:sanctum-customer')->group(function () {
+    Route::get('/get-customer', [CustomerAuthController::class, 'me']);
+});
 
 Route::prefix('shop')->group(function () {
     Route::get('/products', [FrontendController::class, 'products']);
@@ -94,6 +108,11 @@ Route::middleware(["auth:sanctum", "role:admin"])
 
         Route::get("/reports/products",[ProductReportController::class,'index']);
 
-
+        Route::apiResource('customer-groups', CustomerGroupController::class);
+        Route::patch('/customer-groups/{uuid}/status', [CustomerGroupController::class, 'status']);
+        
+        Route::apiResource('customers', CustomerController::class);
+        Route::patch('/customers/{uuid}/status', [CustomerController::class, 'status']);
+        
         Route::post("/logout", LogoutController::class);
     });

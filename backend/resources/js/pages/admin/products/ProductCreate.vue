@@ -43,10 +43,11 @@
           <q-tab name="basic" icon="info" label="Basic Info" />
           <q-tab name="categories" icon="category" label="Categories" />
           <q-tab name="compatible" icon="widgets" label="Compatible Products" />
+          <q-tab name="suppliers" icon="local_shipping" label="Suppliers" />
           <q-tab v-if="type == 'standard'" name="price" icon="attach_money" label="Price" />
           <q-tab v-if="type == 'bundle'" name="bundle_and_price" icon="inventory" label="Bundle & Price" />
           <q-tab name="images" icon="image" label="Images" />
-          <q-tab name="suppliers" icon="local_shipping" label="Suppliers" />
+
           <q-tab name="seo" icon="search" label="SEO" />
         </q-tabs>
 
@@ -487,6 +488,75 @@
                     <q-icon name="warning" />
                   </template>
                   No suppliers assigned. Product cost will be $0.00. Please assign suppliers in the "Suppliers" tab.
+                </q-banner>
+              </div>
+
+              <!-- Customer Group Pricing Integrated Table -->
+              <div class="col-12 q-mt-lg">
+                <q-separator class="q-mb-md" />
+                <div class="text-h6 q-mb-sm">Customer Group Pricing</div>
+                <div class="text-subtitle2 text-grey-6 q-mb-md">
+                  Set specific prices or discounts for different customer groups based on RRP.
+                </div>
+
+                <div v-if="customerGroups.length > 0" class="bg-white rounded-borders shadow-1 overflow-hidden">
+                  <q-markup-table flat bordered dense class="q-table--no-wrap">
+                    <thead>
+                      <tr class="bg-grey-2 text-grey-8">
+                        <th class="text-left">Customer Group</th>
+                        <th class="text-left" style="width: 150px">Price Type</th>
+                        <th class="text-left" style="width: 150px">Value</th>
+                        <th class="text-right" style="width: 150px">Final Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="group in customerGroups" :key="group.id">
+                        <td class="text-left">
+                          <div class="text-weight-medium">{{ group.name }}</div>
+                        </td>
+                        <td class="text-left">
+                          <q-select
+                            v-model="getCustomerGroupPrice(group.id).price_type"
+                            :options="[
+                              { label: 'Fixed Price', value: 'fixed' },
+                              { label: 'Percentage Discount', value: 'percentage' }
+                            ]"
+                            outlined
+                            dense
+                            emit-value
+                            map-options
+                            class="bg-grey-1"
+                          />
+                        </td>
+                        <td class="text-left">
+                          <q-input
+                            v-model.number="getCustomerGroupPrice(group.id).amount"
+                            outlined
+                            dense
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            @keypress="onlyNumbers"
+                            clearable
+                            :prefix="getCustomerGroupPrice(group.id).price_type === 'fixed' ? '$' : ''"
+                            :suffix="getCustomerGroupPrice(group.id).price_type === 'percentage' ? '%' : ''"
+                            class="bg-grey-1"
+                          />
+                        </td>
+                        <td class="text-right">
+                          <div class="text-subtitle2 text-primary font-mono text-weight-bold">
+                            ${{ calculateGroupFinalPrice(getCustomerGroupPrice(group.id)).toFixed(2) }}
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </q-markup-table>
+                </div>
+                <q-banner v-else class="bg-grey-2 text-grey-7 rounded-borders">
+                  <template v-slot:avatar>
+                    <q-icon name="info" />
+                  </template>
+                  No customer groups found.
                 </q-banner>
               </div>
             </div>
@@ -1009,6 +1079,7 @@
               </div>
             </div>
           </q-tab-panel>
+
         </q-tab-panels>
       </q-card>
 
@@ -1137,6 +1208,8 @@ export default {
     const loadingBundleProducts = ref(false)
     const saving = ref(false)
     const formErrors = ref({})
+    const customerGroups = ref([])
+    const customerGroupPricing = ref([])
     
     // Supplier specific refs
     const selectedSupplier = ref(null)
@@ -1334,6 +1407,53 @@ export default {
         })
       } finally {
         loadingCategories.value = false
+      }
+    }
+
+    const fetchCustomerGroups = async () => {
+      try {
+        const response = await axios.get('/admin/customer-groups')
+        customerGroups.value = response.data || []
+        
+        // Initialize pricing array if needed
+        customerGroups.value.forEach(group => {
+          if (!customerGroupPricing.value.find(p => p.customer_group_id === group.id)) {
+            customerGroupPricing.value.push({
+              customer_group_id: group.id,
+              price: null,
+              fixed_price: null,
+              discount_percentage: null
+            })
+          }
+        })
+      } catch (error) {
+        console.error('Failed to load customer groups:', error)
+      }
+    }
+
+    const getCustomerGroupPrice = (groupId) => {
+      let pricing = customerGroupPricing.value.find(p => p.customer_group_id === groupId)
+      if (!pricing) {
+        pricing = {
+          customer_group_id: groupId,
+          price_type: 'fixed',
+          amount: null,
+          price: null,
+          fixed_price: null,
+          discount_percentage: null
+        }
+        customerGroupPricing.value.push(pricing)
+      }
+      return pricing
+    }
+
+    const calculateGroupFinalPrice = (pricing) => {
+      const basePrice = product.value.override_rrp_cost || (calculatedPricing.value ? calculatedPricing.value.finalRRP : 0) || 0
+      if (pricing.price_type === 'fixed') {
+        return parseFloat(pricing.amount || 0)
+      } else {
+        const discount = parseFloat(pricing.amount || 0)
+        return basePrice - (basePrice * discount / 100)
       }
     }
 
@@ -1835,6 +1955,15 @@ export default {
             })
         }
 
+        if (customerGroupPricing.value.length > 0) {
+            const activePricing = customerGroupPricing.value.filter(p => p.amount != null && p.amount !== '')
+            activePricing.forEach((p, index) => {
+                formData.append(`customer_group_pricing[${index}][customer_group_id]`, p.customer_group_id)
+                formData.append(`customer_group_pricing[${index}][price_type]`, p.price_type)
+                formData.append(`customer_group_pricing[${index}][amount]`, p.amount)
+            })
+        }
+
         await axios.post('/admin/products', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
@@ -2005,7 +2134,10 @@ export default {
     onMounted(async () => {
       try {
         loading.value = true
-        await fetchCategories()
+        await Promise.all([
+          fetchCategories(),
+          fetchCustomerGroups()
+        ])
       } catch (error) {
         console.error('Error loading data:', error)
       } finally {
@@ -2065,12 +2197,16 @@ export default {
       handleSave,
       handleCancel,
       onlyNumbers,
+      calculateGroupFinalPrice,
       selectedSupplier,
       supplierOptions,
       supplierColumns,
       filterSuppliers,
       addSupplier,
       removeSupplier,
+      customerGroups,
+      customerGroupPricing,
+      getCustomerGroupPrice,
 
       type
     }

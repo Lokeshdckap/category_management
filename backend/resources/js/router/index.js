@@ -15,6 +15,24 @@ const routes = [
         }
     },
     {
+        path: '/customer/login',
+        name: 'CustomerLogin',
+        component: () => import('../pages/customer/LoginPage.vue'),
+        meta: {
+            guest: true,
+            layout: 'auth'
+        }
+    },
+    {
+        path: '/customer/register',
+        name: 'CustomerRegister',
+        component: () => import('../pages/customer/RegisterPage.vue'),
+        meta: {
+            guest: true,
+            layout: 'auth'
+        }
+    },
+    {
         path: '/dashboard',
         name: 'Dashboard',
         component: () => import('../pages/admin/DashboardPage.vue'),
@@ -108,6 +126,24 @@ const routes = [
         path: '/product-reports',
         name: 'ProductReport',
         component: () => import('../pages/admin/reports/ProductReport.vue'),
+        meta: {
+            requiresAuth: true,
+            layout: 'admin'
+        }
+    },
+    {
+        path: '/customer-groups',
+        name: 'CustomerGroupList',
+        component: () => import('../pages/admin/customers/CustomerGroupList.vue'),
+        meta: {
+            requiresAuth: true,
+            layout: 'admin'
+        }
+    },
+    {
+        path: '/customers',
+        name: 'CustomerList',
+        component: () => import('../pages/admin/customers/CustomerList.vue'),
         meta: {
             requiresAuth: true,
             layout: 'admin'

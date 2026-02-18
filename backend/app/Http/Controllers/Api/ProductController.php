@@ -104,6 +104,11 @@ class ProductController extends Controller
             "rrp_cost" => "nullable|numeric|min:0",
             "override_rrp_cost" => "nullable|numeric|min:0",
             "product_cost" => "nullable|numeric|min:0",
+
+            "customer_group_pricing" => "nullable|array",
+            "customer_group_pricing.*.customer_group_id" => "required|exists:customer_groups,id",
+            "customer_group_pricing.*.price_type" => "required|in:fixed,percentage",
+            "customer_group_pricing.*.amount" => "required|numeric|min:0",
         ];
 
         if ($request->type === 'standard') {
@@ -247,6 +252,12 @@ class ProductController extends Controller
                 $product->suppliers()->sync($supplierData);
             }
 
+            if ($request->has('customer_group_pricing')) {
+                foreach ($request->customer_group_pricing as $pricing) {
+                    $product->customerGroupPrices()->create($pricing);
+                }
+            }
+
             if ($request->has("images")) {
                 foreach ($request->images as $index => $imageData) {
                     if (isset($imageData['file'])) {
@@ -269,7 +280,8 @@ class ProductController extends Controller
                 'defaultCategory', 
                 'compatibleProducts', 
                 'bundleProducts',
-                'images'
+                'images',
+                'customerGroupPrices'
             ]);
 
             return response()->json([
@@ -297,7 +309,8 @@ class ProductController extends Controller
             },
             'images' => function($query) {
                 $query->orderBy('sort_order');
-            }
+            },
+            'customerGroupPrices'
         ])->where('uuid', $uuid)->firstOrFail();
 
         if ($product->type === 'bundle' && $product->bundleProducts) {
@@ -331,7 +344,8 @@ class ProductController extends Controller
             'bundleProducts',
             'images' => function($query) {
                 $query->orderBy('sort_order');
-            }
+            },
+            'customerGroupPrices'
         ])->where('uuid', $uuid)->firstOrFail();
 
         $data = [
@@ -378,6 +392,7 @@ class ProductController extends Controller
             'rrp_cost' => $product->rrp_cost,
             'override_rrp_cost' => $product->override_rrp_cost,
             'product_cost' => $product->product_cost,
+            'customer_group_pricing' => $product->customerGroupPrices,
         ];
 
         if ($product->type === 'standard') {
@@ -459,6 +474,11 @@ class ProductController extends Controller
             "rrp_cost" => "nullable|numeric|min:0",
             "override_rrp_cost" => "nullable|numeric|min:0",
             "product_cost" => "nullable|numeric|min:0",
+
+            "customer_group_pricing" => "nullable|array",
+            "customer_group_pricing.*.customer_group_id" => "required|exists:customer_groups,id",
+            "customer_group_pricing.*.price_type" => "required|in:fixed,percentage",
+            "customer_group_pricing.*.amount" => "required|numeric|min:0",
         ];
 
         if ($request->type === 'standard') {
@@ -610,6 +630,13 @@ class ProductController extends Controller
                 $product->suppliers()->sync($supplierData);
             }
 
+            if ($request->has('customer_group_pricing')) {
+                $product->customerGroupPrices()->delete();
+                foreach ($request->customer_group_pricing as $pricing) {
+                    $product->customerGroupPrices()->create($pricing);
+                }
+            }
+
             if ($request->has('deleted_images')) {
                 foreach ($request->deleted_images as $imageId) {
                     $image = $product->images()->find($imageId);
@@ -678,7 +705,8 @@ class ProductController extends Controller
                 'defaultCategory', 
                 'compatibleProducts', 
                 'bundleProducts',
-                'images'
+                'images',
+                'customerGroupPrices'
             ]);
 
             return response()->json([

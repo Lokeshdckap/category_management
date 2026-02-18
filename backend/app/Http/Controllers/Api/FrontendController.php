@@ -12,7 +12,7 @@ class FrontendController extends Controller
 {
     public function products(Request $request)
     {
-        $query = Product::with(['defaultCategory', 'primaryImage'])
+        $query = Product::with(['defaultCategory', 'primaryImage', 'customerGroupPrices'])
             ->where('status', 'active');
 
         if ($request->has('category_id')) {
@@ -62,7 +62,10 @@ class FrontendController extends Controller
                 'categoryId' => $product->default_category_id,
                 'category_slug_url' => $product->defaultCategory ? $product->defaultCategory->slug_url : '',
                 'description' => $product->short_description ?? $product->description,
-                'slug' => $product->slug
+                'slug' => $product->slug,
+                'customer_group_pricing' => $product->customerGroupPrices,
+                'override_rrp_cost' => (float)$product->override_rrp_cost,
+                'rrp_cost' => (float)$product->rrp_cost,
             ];
         });
 
@@ -157,7 +160,7 @@ class FrontendController extends Controller
         $categoryPath = implode('/', $parts);
 
         // Try direct slug match first if no category path
-        $productQuery = Product::with(['defaultCategory', 'primaryImage', 'images'])
+        $productQuery = Product::with(['defaultCategory', 'primaryImage', 'images', 'customerGroupPrices'])
             ->where('slug', $productSlug)
             ->where('status', 'active');
 
@@ -207,6 +210,9 @@ class FrontendController extends Controller
                     'slug' => $product->slug,
                     'total_price' => (float)$product->total_price,
                     'type' => $product->type,
+                    'customer_group_pricing' => $product->customerGroupPrices,
+                    'override_rrp_cost' => (float)$product->override_rrp_cost,
+                    'rrp_cost' => (float)$product->rrp_cost,
                     'related_products' => $relatedProducts
                 ]
             ]);
@@ -217,7 +223,7 @@ class FrontendController extends Controller
 
     public function show(string $slug)
     {
-        $product = Product::with(['defaultCategory', 'primaryImage', 'images'])
+        $product = Product::with(['defaultCategory', 'primaryImage', 'images', 'customerGroupPrices'])
             ->where('slug', $slug)
             ->where('status', 'active')
             ->firstOrFail();
@@ -240,7 +246,10 @@ class FrontendController extends Controller
             'sku' => $product->sku,
             'slug' => $product->slug,
             'total_price' => (float)$product->total_price,
-            'type' => $product->type
+            'type' => $product->type,
+            'customer_group_pricing' => $product->customerGroupPrices,
+            'override_rrp_cost' => (float)$product->override_rrp_cost,
+            'rrp_cost' => (float)$product->rrp_cost,
         ]);
     }
 }

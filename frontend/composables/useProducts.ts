@@ -9,6 +9,9 @@ export interface Product {
     category_slug_url?: string;
     description: string;
     slug: string;
+    customer_group_pricing?: any[];
+    override_rrp_cost?: number;
+    rrp_cost?: number;
 }
 
 export interface Category {
@@ -122,6 +125,32 @@ export const useProducts = () => {
         }
     };
 
+    const getProductPrice = (product: Product, customerGroupId?: number | null) => {
+        // Base price priority: Override RRP > RRP > Product Price
+        const basePrice = product.override_rrp_cost || product.rrp_cost || product.price;
+
+        if (!customerGroupId || !product.customer_group_pricing || product.customer_group_pricing.length === 0) {
+            return basePrice;
+        }
+
+        const groupPricing = product.customer_group_pricing.find(
+            (p: any) => p.customer_group_id === customerGroupId
+        );
+
+        if (!groupPricing) {
+            return basePrice;
+        }
+
+        if (groupPricing.price_type === 'fixed') {
+            return parseFloat(groupPricing.amount || 0);
+        } else if (groupPricing.price_type === 'percentage') {
+            const discount = parseFloat(groupPricing.amount || 0);
+            return basePrice - (basePrice * discount / 100);
+        }
+
+        return basePrice;
+    };
+
     // Initial fetch if needed, or let component handle it
     const init = async () => {
         await Promise.all([
@@ -144,6 +173,7 @@ export const useProducts = () => {
         fetchProductBySlug,
         fetchCategoryBySlug,
         resolveSlug,
+        getProductPrice,
         init
     };
 };

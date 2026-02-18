@@ -1,9 +1,20 @@
 <template>
   <div class="app-container">
+    <Navbar />
     <NuxtRouteAnnouncer />
     <NuxtPage />
   </div>
 </template>
+
+<script setup lang="ts">
+import { onMounted } from 'vue';
+
+const { initAuth } = useAuth();
+
+onMounted(() => {
+  initAuth();
+});
+</script>
 
 <style>
 /* Global resets */

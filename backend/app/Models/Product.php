@@ -171,6 +171,11 @@ class Product extends Model
             ->withTimestamps();
     }
 
+    public function customerGroupPrices()
+    {
+        return $this->hasMany(ProductCustomerGroupPrice::class);
+    }
+
 
     public function getCalculatedTotalPriceAttribute()
     {

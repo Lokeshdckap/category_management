@@ -57,9 +57,23 @@
 
         <q-item clickable v-ripple to="/suppliers">
           <q-item-section avatar>
-            <q-icon name="product" />
+            <q-icon name="inventory" />
           </q-item-section>
           <q-item-section>Suppliers</q-item-section>
+        </q-item>
+
+        <q-item clickable v-ripple to="/customer-groups">
+          <q-item-section avatar>
+            <q-icon name="group" />
+          </q-item-section>
+          <q-item-section>Customer Groups</q-item-section>
+        </q-item>
+
+        <q-item clickable v-ripple to="/customers">
+          <q-item-section avatar>
+            <q-icon name="person" />
+          </q-item-section>
+          <q-item-section>Customers</q-item-section>
         </q-item>
 
          <q-item clickable v-ripple to="/product-reports">

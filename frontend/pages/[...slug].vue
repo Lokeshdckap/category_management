@@ -69,7 +69,7 @@
             <nav class="breadcrumb">
                 <NuxtLink to="/">Home</NuxtLink>
                 <span class="separator">/</span>
-                <NuxtLink v-if="currentEntity.category" :to="currentEntity.category.slug_url">
+                <NuxtLink v-if="currentEntity.category" :to="'/' + currentEntity.category.slug_url">
                     {{ currentEntity.category.name }}
                 </NuxtLink>
                 <span class="separator">/</span>
@@ -105,8 +105,8 @@
                 <p class="sku">SKU: {{ currentEntity.sku }}</p>
 
                 <div class="price-section">
-                    <span class="price">${{ currentEntity.price.toFixed(2) }}</span>
-                    <span v-if="currentEntity.total_price > currentEntity.price" class="old-price">
+                    <span class="price">${{ displayPrice.toFixed(2) }}</span>
+                    <span v-if="currentEntity.total_price > displayPrice" class="old-price">
                         ${{ currentEntity.total_price.toFixed(2) }}
                     </span>
                 </div>
@@ -169,6 +169,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useProducts, type Category } from '../composables/useProducts';
+import { useAuth } from '../composables/useAuth';
 
 const route = useRoute();
 const slug = computed(() => {
@@ -176,7 +177,13 @@ const slug = computed(() => {
     return Array.isArray(s) ? s.join('/') : s;
 });
 
-const { products, categories, fetchProducts, fetchCategories, resolveSlug, loading } = useProducts();
+const { products, categories, fetchProducts, fetchCategories, resolveSlug, getProductPrice, loading } = useProducts();
+const { user } = useAuth();
+
+const displayPrice = computed(() => {
+    if (entityType.value !== 'product' || !currentEntity.value) return 0;
+    return getProductPrice(currentEntity.value, user.value?.customer_group_id);
+});
 
 const entityType = ref<'category' | 'product' | null>(null);
 const currentEntity = ref<any>(null);
