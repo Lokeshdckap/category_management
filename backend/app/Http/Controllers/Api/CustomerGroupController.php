@@ -30,28 +30,32 @@ class CustomerGroupController extends Controller
 
     public function store(Request $request)
     {
-        $request->merge([
-            "name" => strtolower($request->name),
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'status' => 'nullable|boolean',
         ]);
 
-        $request->validate([
-            "name" => "required|string|max:255|unique:customer_groups,name",
-            "status" => "nullable|boolean",
-        ]);
+    
+        $alreadyExists = CustomerGroup::whereRaw('LOWER(name) = ?', [strtolower($request->name)])
+            ->exists();
+
+        if ($alreadyExists) {
+            return response()->json([
+                'message' => 'Customer group already exists',
+            ], 422);
+        }
 
         $group = CustomerGroup::create([
-            "name" => $request->name,
-            "status" => $request->boolean("status", true),
+            'name' => $request->name,
+            'status' => $request->boolean('status', true),
         ]);
 
-        return response()->json(
-            [
-                "message" => "Customer group created successfully",
-                "data" => $group,
-            ],
-            201
-        );
+        return response()->json([
+            'message' => 'Customer group created successfully',
+            'data' => $group,
+        ], 201);
     }
+
 
     public function show($uuid)
     {
@@ -61,32 +65,34 @@ class CustomerGroupController extends Controller
 
     public function update(Request $request, $uuid)
     {
-        $group = CustomerGroup::where("uuid", $uuid)->firstOrFail();
+        $group = CustomerGroup::where('uuid', $uuid)->firstOrFail();
 
-        $request->merge([
-            "name" => strtolower(trim($request->name)),
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'status' => 'nullable|boolean',
         ]);
 
-        $validated = $request->validate([
-            "name" => [
-                "required",
-                "string",
-                "max:255",
-                Rule::unique("customer_groups", "name")->ignore($group->id),
-            ],
-            "status" => "nullable|boolean",
-        ]);
+        $alreadyExists = CustomerGroup::whereRaw('LOWER(name) = ?', [strtolower($request->name)])
+            ->where('id', '!=', $group->id)
+            ->exists();
+
+        if ($alreadyExists) {
+            return response()->json([
+                'message' => 'Customer group already exists',
+            ], 422);
+        }
 
         $group->update([
-            "name" => $validated["name"],
-            "status" => $request->boolean("status"),
+            'name' => $request->name,
+            'status' => $request->boolean('status'),
         ]);
 
         return response()->json([
-            "message" => "Customer group updated successfully",
-            "data" => $group,
+            'message' => 'Customer group updated successfully',
+            'data' => $group,
         ]);
     }
+
 
     public function destroy($uuid)
     {

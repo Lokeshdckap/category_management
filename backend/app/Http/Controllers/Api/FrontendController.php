@@ -65,6 +65,7 @@ class FrontendController extends Controller
                 'slug' => $product->slug,
                 'customer_group_pricing' => $product->customerGroupPrices,
                 'override_rrp_cost' => (float)$product->override_rrp_cost,
+                'override_rrp_status' => (bool)$product->override_rrp_status,
                 'rrp_cost' => (float)$product->rrp_cost,
             ];
         });
@@ -212,6 +213,7 @@ class FrontendController extends Controller
                     'type' => $product->type,
                     'customer_group_pricing' => $product->customerGroupPrices,
                     'override_rrp_cost' => (float)$product->override_rrp_cost,
+                    'override_rrp_status' => (bool)$product->override_rrp_status,
                     'rrp_cost' => (float)$product->rrp_cost,
                     'related_products' => $relatedProducts
                 ]
@@ -249,6 +251,7 @@ class FrontendController extends Controller
             'type' => $product->type,
             'customer_group_pricing' => $product->customerGroupPrices,
             'override_rrp_cost' => (float)$product->override_rrp_cost,
+            'override_rrp_status' => (bool)$product->override_rrp_status,
             'rrp_cost' => (float)$product->rrp_cost,
         ]);
     }

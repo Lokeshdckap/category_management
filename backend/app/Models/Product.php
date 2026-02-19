@@ -27,6 +27,7 @@ class Product extends Model
         'override_shipping_cost',
         'rrp_cost',
         'override_rrp_cost',
+        'override_rrp_status',
         'product_cost',
         
         'bundle_subtotal',
@@ -48,6 +49,7 @@ class Product extends Model
         'override_shipping_cost' => 'decimal:2',
         'rrp_cost' => 'decimal:2',
         'override_rrp_cost' => 'decimal:2',
+        'override_rrp_status' => 'boolean',
         'product_cost' => 'decimal:2',
         'bundle_subtotal' => 'decimal:2',
         'bundle_gp_percentage' => 'decimal:2',

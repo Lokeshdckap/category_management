@@ -11,6 +11,7 @@ export interface Product {
     slug: string;
     customer_group_pricing?: any[];
     override_rrp_cost?: number;
+    override_rrp_status?: boolean;
     rrp_cost?: number;
 }
 
@@ -126,8 +127,10 @@ export const useProducts = () => {
     };
 
     const getProductPrice = (product: Product, customerGroupId?: number | null) => {
-        // Base price priority: Override RRP > RRP > Product Price
-        const basePrice = product.override_rrp_cost || product.rrp_cost || product.price;
+        // Base price priority: Explicit Override > RRP > Product Price
+        const basePrice = product.override_rrp_status
+            ? (product.override_rrp_cost || 0)
+            : (product.rrp_cost || product.price);
 
         if (!customerGroupId || !product.customer_group_pricing || product.customer_group_pricing.length === 0) {
             return basePrice;

@@ -103,6 +103,7 @@ class ProductController extends Controller
             "override_shipping_cost" => "nullable|numeric|min:0",
             "rrp_cost" => "nullable|numeric|min:0",
             "override_rrp_cost" => "nullable|numeric|min:0",
+            "override_rrp_status" => "nullable|boolean",
             "product_cost" => "nullable|numeric|min:0",
 
             "customer_group_pricing" => "nullable|array",
@@ -192,6 +193,7 @@ class ProductController extends Controller
                 "override_shipping_cost" => $request->override_shipping_cost,
                 "rrp_cost" => $request->rrp_cost ?? 0,
                 "override_rrp_cost" => $request->override_rrp_cost,
+                "override_rrp_status" => filter_var($request->override_rrp_status ?? false, FILTER_VALIDATE_BOOLEAN),
                 "product_cost" => $request->product_cost ?? 0,
             ];
 
@@ -390,8 +392,9 @@ class ProductController extends Controller
             'cost_mode' => $product->cost_mode,
             'override_shipping_cost' => $product->override_shipping_cost,
             'rrp_cost' => $product->rrp_cost,
-            'override_rrp_cost' => $product->override_rrp_cost,
-            'product_cost' => $product->product_cost,
+            "override_rrp_cost" => $product->override_rrp_cost,
+            "override_rrp_status" => (bool)$product->override_rrp_status,
+            "product_cost" => $product->product_cost,
             'customer_group_pricing' => $product->customerGroupPrices,
         ];
 
@@ -473,6 +476,7 @@ class ProductController extends Controller
             "override_shipping_cost" => "nullable|numeric|min:0",
             "rrp_cost" => "nullable|numeric|min:0",
             "override_rrp_cost" => "nullable|numeric|min:0",
+            "override_rrp_status" => "nullable|boolean",
             "product_cost" => "nullable|numeric|min:0",
 
             "customer_group_pricing" => "nullable|array",
@@ -561,6 +565,7 @@ class ProductController extends Controller
                 "override_shipping_cost" => $request->override_shipping_cost,
                 "rrp_cost" => $request->rrp_cost ?? $product->rrp_cost,
                 "override_rrp_cost" => $request->override_rrp_cost,
+                "override_rrp_status" => filter_var($request->override_rrp_status ?? false, FILTER_VALIDATE_BOOLEAN),
                 "product_cost" => $request->product_cost ?? $product->product_cost,
             ];
 

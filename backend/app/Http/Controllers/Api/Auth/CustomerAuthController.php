@@ -33,8 +33,8 @@ class CustomerAuthController extends Controller
             'name'              => $request->name,
             'email'             => $request->email,
             'password'          => Hash::make($request->password),
-            'customer_group_id' => null, // Default null
-            'status'            => false, // Default false
+            'customer_group_id' => null,
+            'status'            => false, 
         ]);
 
         return response()->json([

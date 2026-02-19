@@ -14,6 +14,7 @@
             placeholder="john@example.com" 
             required 
           />
+          <span v-if="formErrors.email" class="field-error">{{ formErrors.email }}</span>
         </div>
 
         <div class="form-group">
@@ -25,6 +26,7 @@
             placeholder="••••••••" 
             required 
           />
+          <span v-if="formErrors.password" class="field-error">{{ formErrors.password }}</span>
         </div>
 
         <button type="submit" class="auth-btn" :disabled="loading">
@@ -60,6 +62,11 @@ const form = ref({
   password: ''
 });
 
+const formErrors = ref({
+  email: '',
+  password: ''
+});
+
 const loading = ref(false);
 const message = ref('');
 const messageType = ref('');
@@ -73,6 +80,7 @@ const handleLogin = async () => {
   loading.value = true;
   message.value = '';
   showToast.value = false;
+  formErrors.value = { email: '', password: '' };
   
   try {
     const response = await fetch('http://127.0.0.1:8000/api/customer/login', {
@@ -102,6 +110,13 @@ const handleLogin = async () => {
             toastMessage.value = data.message || 'Account under verification once verified we will notify you';
             showToast.value = true;
             setTimeout(() => { showToast.value = false; }, 6000);
+        } else if (response.status === 422 && data.errors) {
+            Object.keys(data.errors).forEach(key => {
+                if (key in formErrors.value) {
+                    formErrors.value[key as keyof typeof formErrors.value] = data.errors[key][0];
+                }
+            });
+            messageType.value = 'error';
         } else {
             message.value = data.message || 'Login failed. Please check your credentials.';
             messageType.value = 'error';
@@ -237,6 +252,12 @@ const handleLogin = async () => {
   border: 1px solid #f5c6cb;
 }
 
+.field-error {
+  color: #e74c3c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
 /* Toast Styles */
 .toast-overlay {
     position: fixed;

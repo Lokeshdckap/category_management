@@ -14,6 +14,7 @@
             placeholder="John Doe" 
             required 
           />
+          <span v-if="formErrors.name" class="field-error">{{ formErrors.name }}</span>
         </div>
 
         <div class="form-group">
@@ -25,6 +26,7 @@
             placeholder="john@example.com" 
             required 
           />
+          <span v-if="formErrors.email" class="field-error">{{ formErrors.email }}</span>
         </div>
 
         <div class="form-group">
@@ -37,6 +39,7 @@
             required 
             minlength="8"
           />
+          <span v-if="formErrors.password" class="field-error">{{ formErrors.password }}</span>
         </div>
 
         <button type="submit" class="auth-btn" :disabled="loading">
@@ -65,6 +68,12 @@ const form = ref({
   password: ''
 });
 
+const formErrors = ref({
+  name: '',
+  email: '',
+  password: ''
+});
+
 const loading = ref(false);
 const message = ref('');
 const messageType = ref('');
@@ -72,6 +81,7 @@ const messageType = ref('');
 const handleRegister = async () => {
   loading.value = true;
   message.value = '';
+  formErrors.value = { name: '', email: '', password: '' };
   
   try {
     const response = await fetch('http://127.0.0.1:8000/api/customer/register', {
@@ -93,7 +103,15 @@ const handleRegister = async () => {
         navigateTo('/customer/login');
       }, 2000);
     } else {
-      message.value = data.message || 'Registration failed. Please try again.';
+      if (response.status === 422 && data.errors) {
+        Object.keys(data.errors).forEach(key => {
+          if (key in formErrors.value) {
+            formErrors.value[key as keyof typeof formErrors.value] = data.errors[key][0];
+          }
+        });
+      } else {
+        message.value = data.message || 'Registration failed. Please try again.';
+      }
       messageType.value = 'error';
     }
   } catch (error) {
@@ -224,5 +242,12 @@ const handleRegister = async () => {
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+.field-error {
+  color: #e74c3c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 4px;
 }
 </style>

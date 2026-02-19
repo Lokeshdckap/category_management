@@ -353,6 +353,7 @@
                   min="0"
                   prefix="$"
                   clearable
+                  @keypress="onlyNumbers"
                 >
                   <template v-slot:prepend>
                     <q-icon name="local_shipping" />
@@ -403,6 +404,14 @@
 
                   <!-- Override RRP Cost -->
                   <div class="col-12 col-md-4">
+                    <div class="row items-center q-pb-xs" style="min-height: 40px;">
+                      <q-toggle
+                        v-model="product.override_rrp_status"
+                        label="Enable Override RRP"
+                        color="secondary"
+                        dense
+                      />
+                    </div>
                     <q-input
                       v-model.number="product.override_rrp_cost"
                       label="Override RRP Cost"
@@ -413,6 +422,8 @@
                       min="0"
                       prefix="$"
                       clearable
+                      :disable="!product.override_rrp_status"
+                      @keypress="onlyNumbers"
                       :error="!!formErrors.override_rrp_cost || !!formErrors.price"
                       :error-message="formErrors.override_rrp_cost || formErrors.price"
                     >
@@ -1232,6 +1243,7 @@ export default {
       override_shipping_cost: null,
       rrp_cost: 0,
       override_rrp_cost: null,
+      override_rrp_status: false,
       bundle_gp_percentage: 0,
       images: [],
       suppliers: [],
@@ -1368,8 +1380,8 @@ export default {
       
       const sellingPrice = productCost + (productCost * (parseFloat(product.value.gp_percentage) || 0) / 100)
 
-      const finalRRP = (product.value.override_rrp_cost !== null && product.value.override_rrp_cost !== undefined && product.value.override_rrp_cost !== '')
-        ? parseFloat(product.value.override_rrp_cost) || 0
+      const finalRRP = product.value.override_rrp_status
+        ? (parseFloat(product.value.override_rrp_cost) || 0)
         : sellingPrice
 
       return {
@@ -1915,6 +1927,7 @@ export default {
           formData.append('override_shipping_cost', product.value.override_shipping_cost !== null ? product.value.override_shipping_cost : '')
           formData.append('rrp_cost', calculatedPricing.value.sellingPrice)
           formData.append('override_rrp_cost', product.value.override_rrp_cost !== null ? product.value.override_rrp_cost : '')
+          formData.append('override_rrp_status', product.value.override_rrp_status ? 1 : 0)
           formData.append('product_cost', calculatedPricing.value.productCost)
         }
 
