@@ -42,6 +42,13 @@ class LoginController extends Controller
             ], 403);
         }
 
+        if (!$user->hasRole('admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to admin panel',
+            ], 403);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

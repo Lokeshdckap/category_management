@@ -38,6 +38,6 @@ class CustomerGroup extends Model
 
     public function customers()
     {
-        return $this->hasMany(Customer::class);
+        return $this->hasMany(User::class, 'customer_group_id');
     }
 }
