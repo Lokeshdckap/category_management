@@ -150,6 +150,15 @@ const routes = [
         }
     },
     {
+        path: '/attributes',
+        name: 'AttributeList',
+        component: () => import('../pages/admin/attributes/AttributeList.vue'),
+        meta: {
+            requiresAuth: true,
+            layout: 'admin'
+        }
+    },
+    {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',
         component: () => import('../pages/ErrorNotFound.vue'),

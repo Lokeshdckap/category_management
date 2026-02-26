@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\ProductReportController;
 use App\Http\Controllers\Api\CustomerGroupController;
 use App\Http\Controllers\Api\CustomerController;
-
+use App\Http\Controllers\Api\AttributeController;
 
 
 
@@ -99,6 +99,8 @@ Route::middleware(["auth:sanctum", "role:admin"])
             "destroy",
         ]);
 
+        Route::post("/products/generate-variations", [ProductController::class, "generateVariations"]);
+
         Route::get("/suppliers",[SupplierController::class,'index']);
         Route::post("/suppliers", [SupplierController::class, 'store']);
         Route::get("/suppliers/{id}", [SupplierController::class, 'show']);
@@ -113,6 +115,9 @@ Route::middleware(["auth:sanctum", "role:admin"])
         
         Route::apiResource('customers', CustomerController::class);
         Route::patch('/customers/{uuid}/status', [CustomerController::class, 'status']);
+
+        Route::apiResource('attributes', AttributeController::class);
+        Route::post('/attributes/reorder', [AttributeController::class, 'updateOrder']);
         
         Route::post("/logout", LogoutController::class);
     });

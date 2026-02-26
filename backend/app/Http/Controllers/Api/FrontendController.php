@@ -161,7 +161,15 @@ class FrontendController extends Controller
         $categoryPath = implode('/', $parts);
 
         // Try direct slug match first if no category path
-        $productQuery = Product::with(['defaultCategory', 'primaryImage', 'images', 'customerGroupPrices'])
+        $productQuery = Product::with([
+            'defaultCategory', 
+            'primaryImage', 
+            'images', 
+            'customerGroupPrices',
+            'productAttributes.attribute',
+            'productAttributes.assignedValues.attributeValue',
+            'variations.attributeValues.attribute'
+        ])
             ->where('slug', $productSlug)
             ->where('status', 'active');
 
@@ -215,6 +223,31 @@ class FrontendController extends Controller
                     'override_rrp_cost' => (float)$product->override_rrp_cost,
                     'override_rrp_status' => (bool)$product->override_rrp_status,
                     'rrp_cost' => (float)$product->rrp_cost,
+                    'product_attributes' => $product->productAttributes->filter(function($attr) {
+                        if ($attr->attribute->status !== 'active') return false;
+                        return $attr->assignedValues->contains(fn($val) => $val->attributeValue->status === 'active');
+                    })->values()->map(fn($attr) => [
+                        'id' => $attr->id,
+                        'name' => $attr->attribute->name,
+                        'is_variation' => (bool)$attr->is_variation,
+                        'values' => $attr->assignedValues->filter(function($val) {
+                            return $val->attributeValue->status === 'active';
+                        })->values()->map(fn($val) => [
+                            'id' => $val->attributeValue->id,
+                            'value' => $val->attributeValue->value
+                        ])
+                    ]),
+                    'variations' => $product->variations->filter(function($var) {
+                        return $var->status === 'active' && 
+                               $var->attributeValues->every(fn($av) => $av->status === 'active' && $av->attribute->status === 'active');
+                    })->values()->map(fn($var) => [
+                        'id' => $var->id,
+                        'name' => $var->name,
+                        'price' => (float)$var->price,
+                        'override_price' => (bool)$var->override_price,
+                        'is_default' => (bool)$var->is_default,
+                        'attribute_value_ids' => $var->attributeValues->pluck('id')
+                    ]),
                     'related_products' => $relatedProducts
                 ]
             ]);
@@ -225,7 +258,15 @@ class FrontendController extends Controller
 
     public function show(string $slug)
     {
-        $product = Product::with(['defaultCategory', 'primaryImage', 'images', 'customerGroupPrices'])
+        $product = Product::with([
+            'defaultCategory', 
+            'primaryImage', 
+            'images', 
+            'customerGroupPrices',
+            'productAttributes.attribute',
+            'productAttributes.assignedValues.attributeValue',
+            'variations.attributeValues.attribute'
+        ])
             ->where('slug', $slug)
             ->where('status', 'active')
             ->firstOrFail();
@@ -253,6 +294,31 @@ class FrontendController extends Controller
             'override_rrp_cost' => (float)$product->override_rrp_cost,
             'override_rrp_status' => (bool)$product->override_rrp_status,
             'rrp_cost' => (float)$product->rrp_cost,
+            'product_attributes' => $product->productAttributes->filter(function($attr) {
+                if ($attr->attribute->status !== 'active') return false;
+                return $attr->assignedValues->contains(fn($val) => $val->attributeValue->status === 'active');
+            })->values()->map(fn($attr) => [
+                'id' => $attr->id,
+                'name' => $attr->attribute->name,
+                'is_variation' => (bool)$attr->is_variation,
+                'values' => $attr->assignedValues->filter(function($val) {
+                    return $val->attributeValue->status === 'active';
+                })->values()->map(fn($val) => [
+                    'id' => $val->attributeValue->id,
+                    'value' => $val->attributeValue->value
+                ])
+            ]),
+            'variations' => $product->variations->filter(function($var) {
+                return $var->status === 'active' && 
+                       $var->attributeValues->every(fn($av) => $av->status === 'active' && $av->attribute->status === 'active');
+            })->values()->map(fn($var) => [
+                'id' => $var->id,
+                'name' => $var->name,
+                'price' => (float)$var->price,
+                'override_price' => (bool)$var->override_price,
+                'is_default' => (bool)$var->is_default,
+                'attribute_value_ids' => $var->attributeValues->pluck('id')
+            ]),
         ]);
     }
 }

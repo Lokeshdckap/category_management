@@ -327,7 +327,8 @@ export default {
 
     const productTypes = [
       { label: 'Standard', value: 'standard' },
-      { label: 'Bundle', value: 'bundle' }
+      { label: 'Bundle', value: 'bundle' },
+      { label: 'Combination', value: 'combination' }
     ]
 
     const categoryOptions = ref([])

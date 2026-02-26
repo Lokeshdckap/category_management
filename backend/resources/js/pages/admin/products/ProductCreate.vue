@@ -40,15 +40,36 @@
           align="left"
           narrow-indicator
         >
-          <q-tab name="basic" icon="info" label="Basic Info" />
-          <q-tab name="categories" icon="category" label="Categories" />
-          <q-tab name="compatible" icon="widgets" label="Compatible Products" />
-          <q-tab name="suppliers" icon="local_shipping" label="Suppliers" />
-          <q-tab v-if="type == 'standard'" name="price" icon="attach_money" label="Price" />
-          <q-tab v-if="type == 'bundle'" name="bundle_and_price" icon="inventory" label="Bundle & Price" />
-          <q-tab name="images" icon="image" label="Images" />
-
-          <q-tab name="seo" icon="search" label="SEO" />
+          <q-tab name="basic" icon="info" label="Basic Info">
+            <q-badge v-if="hasTabErrors.basic" color="negative" floating rounded />
+          </q-tab>
+          <q-tab name="categories" icon="category" label="Categories">
+            <q-badge v-if="hasTabErrors.categories" color="negative" floating rounded />
+          </q-tab>
+          <q-tab name="compatible" icon="widgets" label="Compatible Products">
+            <q-badge v-if="hasTabErrors.compatible" color="negative" floating rounded />
+          </q-tab>
+          <q-tab name="suppliers" icon="local_shipping" label="Suppliers">
+            <q-badge v-if="hasTabErrors.suppliers" color="negative" floating rounded />
+          </q-tab>
+          <q-tab v-if="type == 'standard'" name="price" icon="attach_money" label="Price">
+            <q-badge v-if="hasTabErrors.price" color="negative" floating rounded />
+          </q-tab>
+          <q-tab v-if="type == 'bundle'" name="bundle_and_price" icon="inventory" label="Bundle & Price">
+            <q-badge v-if="hasTabErrors.bundle_and_price" color="negative" floating rounded />
+          </q-tab>
+          <q-tab v-if="type == 'combination'" name="attributes" icon="list" label="Attributes">
+            <q-badge v-if="hasTabErrors.attributes" color="negative" floating rounded />
+          </q-tab>
+          <q-tab v-if="type == 'combination'" name="price" icon="attach_money" label="Price">
+            <q-badge v-if="hasTabErrors.price" color="negative" floating rounded />
+          </q-tab>
+          <q-tab name="images" icon="image" label="Images">
+            <q-badge v-if="hasTabErrors.images" color="negative" floating rounded />
+          </q-tab>
+          <q-tab name="seo" icon="search" label="SEO">
+            <q-badge v-if="hasTabErrors.seo" color="negative" floating rounded />
+          </q-tab>
         </q-tabs>
 
         <q-separator />
@@ -319,7 +340,7 @@
           </q-tab-panel>
 
           <!-- Standard Product - Price Tab -->
-          <q-tab-panel name="price" v-if="type == 'standard'">
+          <q-tab-panel name="price" v-if="type == 'standard' || type == 'combination'">
             <div class="text-h6 q-mb-md">Price & Cost Information</div>
 
             <div class="row q-col-gutter-md">
@@ -990,7 +1011,7 @@
               </div>
               <q-select
                 v-model="product.default_supplier_id"
-                :options="product.suppliers.map(s => ({ label: s.name, value: s.id }))"
+                :options="assignedSupplierOptions"
                 outlined
                 dense
                 label="Select Default Supplier"
@@ -1004,6 +1025,221 @@
                   <q-icon name="local_shipping" />
                 </template>
               </q-select>
+            </div>
+          </q-tab-panel>
+
+          <q-tab-panel name="attributes">
+            <div class="text-h6 q-mb-md">Combination Attributes</div>
+            
+            <div class="row q-col-gutter-md q-mb-lg">
+              <div class="col-12 col-md-4">
+                <q-select
+                  v-model="selectedMasterAttribute"
+                  :options="masterAttributeOptions"
+                  label="Select Attribute to Add"
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  :error="!!formErrors.combination_attributes"
+                  :error-message="formErrors.combination_attributes"
+                >
+                  <template v-slot:append>
+                    <q-btn flat round color="primary" icon="add" @click="addAttribute" :disable="!selectedMasterAttribute" />
+                  </template>
+                </q-select>
+              </div>
+            </div>
+
+            <div v-if="product.combination_attributes.length > 0">
+              <draggable
+                v-if="Array.isArray(product.combination_attributes)"
+                v-model="product.combination_attributes"
+                item-key="attribute_id"
+                handle=".attr-handle"
+                class="row q-col-gutter-md"
+              >
+                <template #item="{ element, index }">
+                  <div class="col-12">
+                    <q-card flat bordered>
+                      <q-item class="bg-grey-2">
+                        <q-item-section avatar>
+                          <q-icon name="drag_indicator" class="attr-handle cursor-pointer" color="grey-7" />
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label class="text-weight-bold">{{ element.name }}</q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                          <div class="row items-center q-gutter-md">
+                            <q-checkbox v-model="element.is_variation" label="Use for variations" />
+                            <q-btn flat round color="negative" icon="delete" size="sm" @click="removeAttribute(index)" />
+                          </div>
+                        </q-item-section>
+                      </q-item>
+
+                      <q-card-section>
+                        <div class="row q-col-gutter-sm">
+                          <div class="col-12">
+                            <q-select
+                              label="Add Value"
+                              outlined
+                              dense
+                              :options="getAttributeValueOptions(element)"
+                              @update:model-value="(val) => addAttributeValue(index, val)"
+                              hint="Select values for this product"
+                              emit-value
+                              map-options
+                            />
+                          </div>
+                          
+                          <div class="col-12 q-mt-sm">
+                            <div class="text-subtitle2 q-mb-xs">Selected Values (Drag to reorder):</div>
+                            <div class="row q-gutter-sm">
+                              <draggable
+                                v-if="Array.isArray(element.values)"
+                                v-model="element.values"
+                                item-key="attribute_value_id"
+                                class="row q-gutter-sm"
+                              >
+                                <template #item="{ element: val, index: vIndex }">
+                                  <q-chip
+                                    removable
+                                    color="primary"
+                                    text-white
+                                    @remove="removeAttributeValue(index, vIndex)"
+                                    class="cursor-move"
+                                  >
+                                    {{ val.value }}
+                                  </q-chip>
+                                </template>
+                              </draggable>
+                            </div>
+                            <div v-if="element.values.length === 0" class="text-caption text-grey-6 italic">
+                              No values selected.
+                            </div>
+                          </div>
+                        </div>
+                      </q-card-section>
+                    </q-card>
+                  </div>
+                </template>
+              </draggable>
+            </div>
+            
+            <q-banner v-else class="bg-blue-1 text-blue-9 q-mt-md">
+              <template v-slot:avatar>
+                <q-icon name="info" />
+              </template>
+              Select and add attributes to define combinations for this product.
+            </q-banner>
+
+            <div v-if="product.combination_attributes.some(a => a.is_variation)" class="q-mt-xl">
+              <div class="row items-center justify-between q-mb-md">
+                <div class="text-h6">Product Variations</div>
+                <q-btn 
+                  color="primary" 
+                  outline 
+                  icon="refresh" 
+                  label="Generate Combinations" 
+                  @click="generateVariations"
+                  :loading="generatingVariations"
+                />
+              </div>
+
+              <div v-if="product.variations.length > 0" class="border rounded-borders overflow-hidden">
+                <div class="row bg-grey-2 q-pa-sm text-weight-bold text-grey-8 items-center border-bottom">
+                  <div style="width: 40px" class="text-center"></div>
+                  <div class="col-3">Combination</div>
+                  <div class="col-3">SKU *</div>
+                  <div class="col-3">Price Override</div>
+                  <div style="width: 60px" class="text-center">Default</div>
+                  <div style="width: 60px" class="text-center">Status</div>
+                  <div style="width: 60px" class="text-center">Actions</div>
+                </div>
+
+                <draggable 
+                  v-model="product.variations" 
+                  item-key="name"
+                  handle=".drag-handle"
+                  tag="div"
+                  class="variations-list"
+                >
+                  <template #item="{element, index}">
+                    <div class="row q-pa-sm items-center border-bottom variation-row bg-white">
+                      <div style="width: 40px" class="text-center">
+                        <q-icon name="drag_indicator" class="drag-handle cursor-pointer" color="grey-6" size="18px" />
+                      </div>
+                      <div class="col-3 text-weight-medium">
+                        {{ element.name }}
+                      </div>
+                      <div class="col-3 q-px-xs">
+                        <q-input
+                          v-model="element.sku"
+                          dense
+                          outlined
+                          placeholder="Variation SKU"
+                          :error="!!formErrors[`variations.${index}.sku`]"
+                          hide-bottom-space
+                        />
+                      </div>
+                      <div class="col-3 q-px-xs">
+                        <div class="row items-center no-wrap q-gutter-x-sm">
+                          <q-checkbox v-model="element.override_price" dense />
+                          <q-input
+                            v-model.number="element.price"
+                            dense
+                            outlined
+                            type="number"
+                            step="0.01"
+                            prefix="$"
+                            :disable="!element.override_price"
+                            class="editable-input full-width"
+                            @keypress="onlyNumbers"
+                          />
+                        </div>
+                      </div>
+                      <div style="width: 60px" class="text-center">
+                        <q-radio 
+                          :model-value="product.variations.find(v => v.is_default)?.name" 
+                          :val="element.name"
+                          @update:model-value="(val) => {
+                            product.variations.forEach(v => v.is_default = v.name === val)
+                          }"
+                        />
+                      </div>
+                      <div style="width: 60px" class="text-center">
+                        <q-toggle
+                          v-model="element.status"
+                          color="primary"
+                          true-value="active"
+                          false-value="inactive"
+                          dense
+                        />
+                      </div>
+                      <div style="width: 60px" class="text-center">
+                        <q-btn
+                          flat
+                          dense
+                          round
+                          icon="delete"
+                          color="negative"
+                          size="sm"
+                          @click="removeVariation(index)"
+                        >
+                          <q-tooltip>Remove Variation</q-tooltip>
+                        </q-btn>
+                      </div>
+                    </div>
+                  </template>
+                </draggable>
+              </div>
+              
+              <q-banner v-else class="bg-grey-2 text-grey-7 q-mt-sm">
+                <template v-slot:avatar>
+                  <q-icon name="layers" />
+                </template>
+                No variations generated yet. Click "Generate Combinations" to start.
+              </q-banner>
             </div>
           </q-tab-panel>
 
@@ -1216,6 +1452,7 @@ export default {
     const loading = ref(true)
     const loadingCategories = ref(false)
     const loadingProducts = ref(false)
+    const generatingVariations = ref(false)
     const loadingBundleProducts = ref(false)
     const saving = ref(false)
     const formErrors = ref({})
@@ -1251,8 +1488,13 @@ export default {
       meta_description: '',
       slug: '',
       default_supplier_id: null,
-      status: 'active'
+      status: 'active',
+      combination_attributes: [],
+      variations: []
     })
+
+    const masterAttributes = ref([])
+    const selectedMasterAttribute = ref(null)
 
     const categoryTree = ref([])
     const categoryMap = ref({})
@@ -1294,11 +1536,81 @@ export default {
       }))
     })
 
+    const FIELD_TO_TAB_MAP = {
+      name: 'basic',
+      sku: 'basic',
+      type: 'basic',
+      status: 'basic',
+      short_description: 'basic',
+      description: 'basic',
+      categories: 'categories',
+      default_category_id: 'categories',
+      compatible_products: 'compatible',
+      price: 'price',
+      gp_percentage: 'price',
+      override_rrp_cost: 'price',
+      override_rrp_status: 'price',
+      bundle_products: 'bundle_and_price',
+      bundle_gp_percentage: 'bundle_and_price',
+      images: 'images',
+      existing_images: 'images',
+      deleted_images: 'images',
+      suppliers: 'suppliers',
+      slug: 'seo',
+      meta_title: 'seo',
+      meta_description: 'seo',
+      default_supplier_id: 'suppliers',
+      combination_attributes: 'attributes',
+      variations: 'attributes'
+    }
+
+    const hasTabErrors = computed(() => {
+      const errors = {}
+      Object.keys(FIELD_TO_TAB_MAP).forEach(field => {
+        const tabName = FIELD_TO_TAB_MAP[field]
+        if (!errors[tabName]) {
+          errors[tabName] = Object.keys(formErrors.value).some(key => 
+            key === field || key.startsWith(`${field}.`)
+          )
+        }
+      })
+      return errors
+    })
+
     const compatibleProductsDetails = computed(() => {
       return product.value.compatible_products
         .map(id => addedProductsCache.value[id])
         .filter(p => p !== undefined)
     })
+
+    const assignedSupplierOptions = computed(() => {
+      return (product.value.suppliers || []).map(s => ({
+        label: s.name,
+        value: s.id
+      }))
+    })
+
+    const masterAttributeOptions = computed(() => {
+      const selectedIds = (product.value.combination_attributes || []).map(a => a.attribute_id)
+      return (masterAttributes.value || [])
+        .filter(a => a.status === 'active' || selectedIds.includes(a.id))
+        .map(a => ({
+          label: a.name,
+          value: a.id,
+          disable: selectedIds.includes(a.id)
+        }))
+    })
+
+    const getAttributeValueOptions = (attribute) => {
+      const selectedValueIds = (attribute.values || []).map(v => v.attribute_value_id)
+      return (attribute.availableValues || [])
+        .filter(v => v.status === 'active' || selectedValueIds.includes(v.id))
+        .map(v => ({
+          label: v.value,
+          value: v.id,
+          disable: selectedValueIds.includes(v.id)
+        }))
+    }
 
     const bundleProductsDetails = computed(() => {
       return product.value.bundle_products
@@ -1345,7 +1657,17 @@ export default {
     })
 
     const calculatedPricing = computed(() => {
-      if (type !== 'standard') return {}
+      if (type !== 'standard' && type !== 'combination') {
+        return {
+          supplierCost: 0,
+          dutyPercentage: 0,
+          dutyCost: 0,
+          shippingCost: 0,
+          productCost: 0,
+          sellingPrice: 0,
+          finalRRP: 0
+        }
+      }
       
       let supplierCost = 0
       let dutyPercentage = 0
@@ -1790,6 +2112,58 @@ export default {
       }
     }
 
+    const fetchMasterAttributes = async () => {
+      try {
+        const response = await axios.get('/admin/attributes?status=active')
+        masterAttributes.value = response.data
+      } catch (error) {
+        console.error('Error fetching master attributes:', error)
+      }
+    }
+
+    const addAttribute = () => {
+      if (!selectedMasterAttribute.value) return
+      
+      const attr = masterAttributes.value.find(a => a.id === selectedMasterAttribute.value)
+      if (!attr) return
+
+      // Don't add if already added
+      if (product.value.combination_attributes.some(a => a.attribute_id === attr.id)) {
+        $q.notify({ type: 'warning', message: 'Attribute already added' })
+        return
+      }
+
+      product.value.combination_attributes.push({
+        attribute_id: attr.id,
+        name: attr.name,
+        is_variation: false,
+        values: [],
+        availableValues: attr.values || []
+      })
+      selectedMasterAttribute.value = null
+    }
+
+    const removeAttribute = (index) => {
+      product.value.combination_attributes.splice(index, 1)
+    }
+
+    const addAttributeValue = (attrIndex, valueId) => {
+      const attr = product.value.combination_attributes[attrIndex]
+      const val = attr.availableValues.find(v => v.id === valueId)
+      
+      if (!val) return
+      if (attr.values.some(v => v.attribute_value_id === val.id)) return
+
+      attr.values.push({
+        attribute_value_id: val.id,
+        value: val.value
+      })
+    }
+
+    const removeAttributeValue = (attrIndex, valIndex) => {
+      product.value.combination_attributes[attrIndex].values.splice(valIndex, 1)
+    }
+
     const autoGenerateSlug = () => {
       if (product.value.name && !product.value.slug) {
         generateSlug()
@@ -1839,50 +2213,45 @@ export default {
         }
       }
 
-      if (type === 'bundle') {
-        if (product.value.bundle_products.length === 0) {
-          formErrors.value.bundle_products = 'At least one product must be added to the bundle'
+      if (type === 'combination') {
+        if (product.value.combination_attributes.length === 0) {
+          formErrors.value.combination_attributes = 'At least one attribute must be assigned'
         }
-        if (product.value.bundle_gp_percentage < 0 || product.value.bundle_gp_percentage > 100) {
-          formErrors.value.bundle_gp_percentage = 'Bundle GP% must be between 0 and 100'
-        }
+        // Validate variations
+        product.value.variations.forEach((variation, index) => {
+          if (!variation.sku || variation.sku.trim() === '') {
+            formErrors.value[`variations.${index}.sku`] = 'SKU is required for variation'
+          }
+          if (variation.override_price && (variation.price === null || variation.price < 0)) {
+            formErrors.value[`variations.${index}.price`] = 'Price must be a positive number if overridden'
+          }
+        })
       }
 
       return Object.keys(formErrors.value).length === 0
     }
 
+    const autoGenerateVariationSKUs = () => {
+      if (!product.value.sku) return
+      
+      product.value.variations.forEach(v => {
+        if (!v.sku || v.sku === '' || v.sku.startsWith(product.value.sku) || v.sku.includes('-')) {
+          const suffix = v.name.toUpperCase().replace(/, /g, '-').replace(/ /g, '-')
+          v.sku = `${product.value.sku}-${suffix}`
+        }
+      })
+    }
+
     const scrollToFirstError = () => {
       nextTick(() => {
-        const errorFields = {
-          name: 'basic',
-          sku: 'basic',
-          type: 'basic',
-          status: 'basic',
-          short_description: 'basic',
-          description: 'basic',
-          categories: 'categories',
-          default_category_id: 'categories',
-          compatible_products: 'compatible',
-          price: 'price',
-          gp_percentage: 'price',
-          bundle_products: 'bundle_and_price',
-          bundle_gp_percentage: 'bundle_and_price',
-          images: 'images',
-          existing_images: 'images',
-          deleted_images: 'images',
-          suppliers: 'suppliers',
-          slug: 'seo',
-          meta_title: 'seo',
-          meta_description: 'seo'
-        }
-
-        // Check for specific field errors or wildcard matches (like bundle_products.0.qty)
-        for (const [field, tabName] of Object.entries(errorFields)) {
-          const hasError = Object.keys(formErrors.value).some(key => 
-            key === field || key.startsWith(`${field}.`)
-          )
-          
-          if (hasError) {
+        // Find the first tab that has errors
+        const tabsInOrder = [
+          'basic', 'categories', 'compatible', 'suppliers', 
+          'bundle_and_price', 'attributes', 'price', 'images', 'seo'
+        ]
+        
+        for (const tabName of tabsInOrder) {
+          if (hasTabErrors.value[tabName]) {
             tab.value = tabName
             break
           }
@@ -1920,7 +2289,7 @@ export default {
              formData.append('default_supplier_id', product.value.default_supplier_id)
         }
 
-        if (product.value.type === 'standard' || type === 'standard') {
+        if (product.value.type === 'standard' || type === 'standard' || type === 'combination') {
           formData.append('price', calculatedPricing.value.productCost)
           formData.append('gp_percentage', product.value.gp_percentage)
           formData.append('cost_mode', product.value.cost_mode)
@@ -1929,6 +2298,18 @@ export default {
           formData.append('override_rrp_cost', product.value.override_rrp_cost !== null ? product.value.override_rrp_cost : '')
           formData.append('override_rrp_status', product.value.override_rrp_status ? 1 : 0)
           formData.append('product_cost', calculatedPricing.value.productCost)
+        }
+
+        if (type === 'combination') {
+          product.value.combination_attributes.forEach((attr, index) => {
+            formData.append(`combination_attributes[${index}][attribute_id]`, attr.attribute_id)
+            formData.append(`combination_attributes[${index}][is_variation]`, attr.is_variation ? 1 : 0)
+            formData.append(`combination_attributes[${index}][sort_order]`, index)
+            attr.values.forEach((val, vIndex) => {
+              formData.append(`combination_attributes[${index}][values][${vIndex}][attribute_value_id]`, val.attribute_value_id)
+              formData.append(`combination_attributes[${index}][values][${vIndex}][sort_order]`, vIndex)
+            })
+          })
         }
 
         if (type === 'bundle') {
@@ -1975,6 +2356,22 @@ export default {
                 formData.append(`customer_group_pricing[${index}][price_type]`, p.price_type)
                 formData.append(`customer_group_pricing[${index}][amount]`, p.amount)
             })
+        }
+
+        if (type === 'combination' && product.value.variations.length > 0) {
+          product.value.variations.forEach((v, index) => {
+            formData.append(`variations[${index}][sku]`, v.sku || '')
+            formData.append(`variations[${index}][price]`, v.price || 0)
+            formData.append(`variations[${index}][override_price]`, v.override_price ? 1 : 0)
+            formData.append(`variations[${index}][is_default]`, v.is_default ? 1 : 0)
+            formData.append(`variations[${index}][status]`, v.status || 'active')
+            formData.append(`variations[${index}][sort_order]`, index)
+            if (v.attribute_values) {
+              v.attribute_values.forEach((av, avIndex) => {
+                formData.append(`variations[${index}][attribute_values][${avIndex}][attribute_value_id]`, av.attribute_value_id)
+              })
+            }
+          })
         }
 
         await axios.post('/admin/products', formData, {
@@ -2144,12 +2541,80 @@ export default {
       router.push('/products')
     }
 
+
+
+    const variationColumns = [
+      { name: 'reorder', label: '', align: 'center' },
+      { name: 'name', label: 'Combination', field: 'name', align: 'left' },
+      { name: 'sku', label: 'SKU', field: 'sku', align: 'left' },
+      { name: 'price', label: 'Price Override', field: 'price', align: 'left' },
+      { name: 'is_default', label: 'Default', field: 'is_default', align: 'center' },
+      { name: 'status', label: 'Status', field: 'status', align: 'center' },
+      { name: 'actions', label: 'Actions', align: 'center' }
+    ]
+
+    const generateVariations = async () => {
+      try {
+        const variationAttrs = product.value.combination_attributes
+          .filter(a => a.is_variation && a.values.length > 0)
+          .map(a => ({
+            attribute_id: a.attribute_id,
+            name: a.name,
+            is_variation: a.is_variation,
+            values: a.values
+          }))
+        
+        if (variationAttrs.length === 0) {
+          $q.notify({
+            type: 'warning',
+            message: 'Please select at least one attribute to use for variations and add values to it.'
+          })
+          return
+        }
+
+
+        generatingVariations.value = true
+
+        const response = await axios.post('/admin/products/generate-variations', {
+          attributes: variationAttrs,
+          existing_variations: product.value.variations
+        })
+
+        product.value.variations = response.data.variations
+        autoGenerateVariationSKUs()
+        
+        $q.notify({
+          type: 'positive',
+          message: `${response.data.variations.length} combinations generated.`
+        })
+      } catch (error) {
+        console.error('Error generating variations:', error)
+        $q.notify({
+          type: 'negative',
+          message: error.response?.data?.message || 'Failed to generate variations'
+        })
+      } finally {
+        generatingVariations.value = false
+      }
+    }
+
+    const removeVariation = (index) => {
+      product.value.variations.splice(index, 1)
+    }
+
+    watch(() => product.value.sku, (newSku) => {
+      if (newSku) {
+        autoGenerateVariationSKUs()
+      }
+    })
+
     onMounted(async () => {
       try {
         loading.value = true
         await Promise.all([
           fetchCategories(),
-          fetchCustomerGroups()
+          fetchCustomerGroups(),
+          fetchMasterAttributes()
         ])
       } catch (error) {
         console.error('Error loading data:', error)
@@ -2209,6 +2674,7 @@ export default {
       getFullUrl,
       handleSave,
       handleCancel,
+      hasTabErrors,
       onlyNumbers,
       calculateGroupFinalPrice,
       selectedSupplier,
@@ -2220,7 +2686,20 @@ export default {
       customerGroups,
       customerGroupPricing,
       getCustomerGroupPrice,
+      assignedSupplierOptions,
+      masterAttributeOptions,
+      getAttributeValueOptions,
 
+      masterAttributes,
+      selectedMasterAttribute,
+      addAttribute,
+      removeAttribute,
+      addAttributeValue,
+      removeAttributeValue,
+      variationColumns,
+      generateVariations,
+      removeVariation,
+      generatingVariations,
       type
     }
   }

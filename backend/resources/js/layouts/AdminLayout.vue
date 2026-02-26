@@ -50,9 +50,16 @@
 
         <q-item clickable v-ripple to="/products">
           <q-item-section avatar>
-            <q-icon name="product" />
+            <q-icon name="shopping_bag" />
           </q-item-section>
           <q-item-section>Products</q-item-section>
+        </q-item>
+
+        <q-item clickable v-ripple to="/attributes">
+          <q-item-section avatar>
+            <q-icon name="list" />
+          </q-item-section>
+          <q-item-section>Attributes</q-item-section>
         </q-item>
 
         <q-item clickable v-ripple to="/suppliers">

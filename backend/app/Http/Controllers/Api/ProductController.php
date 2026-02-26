@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use App\Models\Attribute;
+use App\Models\AttributeValue;
+use App\Models\ProductAttribute;
+use App\Models\ProductAttributeValue;
 
 class ProductController extends Controller
 {
@@ -71,7 +75,7 @@ class ProductController extends Controller
     {
         $rules = [
             "name" => "required|string|max:255",
-            'type' => 'required|in:standard,bundle',
+            'type' => 'required|in:standard,bundle,combination',
             "sku" => "required|string|max:100|unique:products,sku",
             "short_description" => "nullable|string|max:500",
             "description" => "nullable|string",
@@ -110,11 +114,25 @@ class ProductController extends Controller
             "customer_group_pricing.*.customer_group_id" => "required|exists:customer_groups,id",
             "customer_group_pricing.*.price_type" => "required|in:fixed,percentage",
             "customer_group_pricing.*.amount" => "required|numeric|min:0",
+
+            "variations" => "nullable|array",
+            "variations.*.price" => "nullable|numeric|min:0",
+            "variations.*.override_price" => "nullable|boolean",
+            "variations.*.is_default" => "nullable|boolean",
+            "variations.*.status" => "nullable|in:active,inactive",
+            "variations.*.attribute_values" => "nullable|array",
+            "variations.*.attribute_values.*.attribute_value_id" => "required|exists:attribute_values,id",
         ];
 
-        if ($request->type === 'standard') {
+        if ($request->type === 'standard' || $request->type === 'combination') {
             $rules['price'] = 'required|numeric|min:0';
-            $rules['gp_percentage'] = 'required|numeric|min:0|max:100';
+            $rules['gp_percentage'] = 'required|numeric|min:0|max:1000';
+        }
+
+        if ($request->type === 'combination') {
+            $rules['combination_attributes'] = 'required|array|min:1';
+            $rules['combination_attributes.*.attribute_id'] = 'required|exists:attributes,id';
+            $rules['combination_attributes.*.values'] = 'required|array|min:1';
         }
 
         if ($request->type === 'bundle') {
@@ -123,7 +141,7 @@ class ProductController extends Controller
             $rules['bundle_products.*.id'] = 'required|exists:products,id';
             $rules['bundle_products.*.price'] = 'required|numeric|min:0';
             $rules['bundle_products.*.qty'] = 'required|integer|min:1';
-            $rules['bundle_gp_percentage'] = 'required|numeric|min:0|max:100';
+            $rules['bundle_gp_percentage'] = 'required|numeric|min:0|max:1000';
         }
 
         $validator = Validator::make($request->all(), $rules);
@@ -197,7 +215,7 @@ class ProductController extends Controller
                 "product_cost" => $request->product_cost ?? 0,
             ];
 
-            if ($request->type === 'standard') {
+            if ($request->type === 'standard' || $request->type === 'combination') {
                 $basePrice = $request->price;
                 $gpPercentage = $request->gp_percentage;
                 
@@ -260,6 +278,43 @@ class ProductController extends Controller
                 }
             }
 
+            if ($request->type === 'combination' && $request->has('combination_attributes')) {
+                foreach ($request->combination_attributes as $index => $attr) {
+                    $productAttr = $product->productAttributes()->create([
+                        'attribute_id' => $attr['attribute_id'],
+                        'is_variation' => filter_var($attr['is_variation'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                        'sort_order' => $attr['sort_order'] ?? $index,
+                    ]);
+
+                    if (isset($attr['values']) && is_array($attr['values'])) {
+                        foreach ($attr['values'] as $vIndex => $val) {
+                            $productAttr->assignedValues()->create([
+                                'attribute_value_id' => $val['attribute_value_id'],
+                                'sort_order' => $val['sort_order'] ?? $vIndex,
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            if ($request->type === 'combination' && $request->has('variations')) {
+                foreach ($request->variations as $index => $var) {
+                    $variation = $product->variations()->create([
+                        'sku' => $var['sku'] ?? null,
+                        'price' => $var['price'] ?? 0,
+                        'override_price' => filter_var($var['override_price'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                        'is_default' => filter_var($var['is_default'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                        'sort_order' => $var['sort_order'] ?? $index,
+                        'status' => $var['status'] ?? 'active',
+                    ]);
+
+                    if (isset($var['attribute_values']) && is_array($var['attribute_values'])) {
+                        $attrValIds = collect($var['attribute_values'])->pluck('attribute_value_id')->toArray();
+                        $variation->attributeValues()->sync($attrValIds);
+                    }
+                }
+            }
+
             if ($request->has("images")) {
                 foreach ($request->images as $index => $imageData) {
                     if (isset($imageData['file'])) {
@@ -283,7 +338,10 @@ class ProductController extends Controller
                 'compatibleProducts', 
                 'bundleProducts',
                 'images',
-                'customerGroupPrices'
+                'customerGroupPrices',
+                'productAttributes.assignedValues.attributeValue',
+                'productAttributes.attribute.values',
+                'variations.attributeValues'
             ]);
 
             return response()->json([
@@ -306,13 +364,19 @@ class ProductController extends Controller
             'categories',
             'defaultCategory',
             'compatibleProducts',
+            'variations' => function($query) {
+                $query->orderBy('sort_order');
+            },
+            'variations.attributeValues',
             'bundleProducts' => function($query) {
                 $query->select('products.id', 'products.uuid', 'products.name', 'products.sku', 'products.type');
             },
             'images' => function($query) {
                 $query->orderBy('sort_order');
             },
-            'customerGroupPrices'
+            'customerGroupPrices',
+            'productAttributes.assignedValues.attributeValue',
+            'productAttributes.attribute.values'
         ])->where('uuid', $uuid)->firstOrFail();
 
         if ($product->type === 'bundle' && $product->bundleProducts) {
@@ -347,7 +411,9 @@ class ProductController extends Controller
             'images' => function($query) {
                 $query->orderBy('sort_order');
             },
-            'customerGroupPrices'
+            'customerGroupPrices',
+            'productAttributes.assignedValues.attributeValue',
+            'productAttributes.attribute.values'
         ])->where('uuid', $uuid)->firstOrFail();
 
         $data = [
@@ -395,7 +461,11 @@ class ProductController extends Controller
             "override_rrp_cost" => $product->override_rrp_cost,
             "override_rrp_status" => (bool)$product->override_rrp_status,
             "product_cost" => $product->product_cost,
-            'customer_group_pricing' => $product->customerGroupPrices,
+            "gp_percentage" => (float)$product->gp_percentage,
+            "bundle_gp_percentage" => (float)$product->bundle_gp_percentage,
+            "product_attributes" => $product->productAttributes,
+            "variations" => $product->variations()->with('attributeValues')->orderBy('sort_order')->get(),
+            "customer_group_pricing" => $product->customerGroupPrices,
         ];
 
         if ($product->type === 'standard') {
@@ -433,7 +503,7 @@ class ProductController extends Controller
 
         $rules = [
             "name" => "required|string|max:255",
-            "type" => "required|in:standard,bundle",
+            "type" => "required|in:standard,bundle,combination",
             "sku" => "required|string|max:100|unique:products,sku," . $product->id,
             "short_description" => "nullable|string|max:500",
             "description" => "nullable|string",
@@ -485,18 +555,36 @@ class ProductController extends Controller
             "customer_group_pricing.*.amount" => "required|numeric|min:0",
         ];
 
-        if ($request->type === 'standard') {
+        if ($request->type === 'standard' || $request->type === 'combination') {
             $rules['price'] = 'required|numeric|min:0';
-            $rules['gp_percentage'] = 'required|numeric|min:0|max:100';
+            $rules['gp_percentage'] = 'required|numeric|min:0|max:1000';
         }
-
         if ($request->type === 'bundle') {
             $rules['price'] = 'nullable|numeric|min:0';
             $rules['bundle_products'] = 'required|array|min:1';
             $rules['bundle_products.*.id'] = 'required|exists:products,id';
             $rules['bundle_products.*.price'] = 'required|numeric|min:0';
             $rules['bundle_products.*.qty'] = 'required|integer|min:1';
-            $rules['bundle_gp_percentage'] = 'required|numeric|min:0|max:100';
+            $rules['bundle_gp_percentage'] = 'required|numeric|min:0|max:1000';
+        }
+
+        if ($request->type === 'combination') {
+            $rules['combination_attributes'] = 'required|array|min:1';
+            $rules['combination_attributes.*.attribute_id'] = 'required|exists:attributes,id';
+            $rules['combination_attributes.*.values'] = 'required|array|min:1';
+            $rules['combination_attributes.*.values.*.attribute_value_id'] = 'required|exists:attribute_values,id';
+
+            if ($request->has('variations')) {
+                $rules['variations'] = 'required|array|min:1';
+                $rules['variations.*.id'] = 'nullable|exists:product_variations,id';
+                $rules['variations.*.sku'] = 'nullable|string|max:100';
+                $rules['variations.*.price'] = 'required|numeric|min:0';
+                $rules['variations.*.override_price'] = 'nullable|boolean';
+                $rules['variations.*.is_default'] = 'nullable|boolean';
+                $rules['variations.*.status'] = 'nullable|in:active,inactive';
+                $rules['variations.*.attribute_values'] = 'required|array|min:1';
+                $rules['variations.*.attribute_values.*.attribute_value_id'] = 'required|exists:attribute_values,id';
+            }
         }
 
         $validator = Validator::make($request->all(), $rules);
@@ -569,7 +657,7 @@ class ProductController extends Controller
                 "product_cost" => $request->product_cost ?? $product->product_cost,
             ];
 
-            if ($request->type === 'standard') {
+            if ($request->type === 'standard' || $request->type === 'combination') {
                 $basePrice = $request->price;
                 $gpPercentage = $request->gp_percentage;
                 
@@ -585,7 +673,7 @@ class ProductController extends Controller
                     $productData['bundle_final_price'] = null;
                     $product->bundleProducts()->detach();
                 }
-            } else {
+            } elseif ($request->type === 'bundle') {
                 $subtotal = $productData['price'] ?? 0;
                 foreach ($request->bundle_products as $item) {
                     $subtotal += ($item['price'] * $item['qty']);
@@ -604,6 +692,10 @@ class ProductController extends Controller
                     $productData['gp_percentage'] = null;
                     $productData['total_price'] = null;
                 }
+                
+                if ($product->type === 'combination') {
+                    $product->productAttributes()->delete();
+                }
             }
 
             $product->update($productData);
@@ -621,8 +713,80 @@ class ProductController extends Controller
                     ];
                 }
                 $product->bundleProducts()->sync($bundleData);
-            } elseif ($request->type === 'standard') {
+            } elseif ($request->type === 'standard' || $request->type === 'combination') {
                 $product->bundleProducts()->detach();
+            }
+
+            if ($request->type === 'combination' && $request->has('combination_attributes')) {
+                $product->productAttributes()->delete();
+                foreach ($request->combination_attributes as $index => $attr) {
+                    $productAttr = $product->productAttributes()->create([
+                        'attribute_id' => $attr['attribute_id'],
+                        'is_variation' => filter_var($attr['is_variation'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                        'sort_order' => $attr['sort_order'] ?? $index,
+                    ]);
+
+                    if (isset($attr['values']) && is_array($attr['values'])) {
+                        foreach ($attr['values'] as $vIndex => $val) {
+                            $productAttr->assignedValues()->create([
+                                'attribute_value_id' => $val['attribute_value_id'],
+                                'sort_order' => $val['sort_order'] ?? $vIndex,
+                            ]);
+                        }
+                    }
+                }
+            } elseif ($request->type !== 'combination') {
+                $product->productAttributes()->delete();
+            }
+
+            if ($request->type === 'combination' && $request->has('variations')) {
+                $keepVariationIds = [];
+                foreach ($request->variations as $index => $var) {
+                    if (isset($var['id'])) {
+                        $variation = $product->variations()->find($var['id']);
+                        if ($variation) {
+                            $variation->update([
+                                'sku' => $var['sku'] ?? $variation->sku,
+                                'price' => $var['price'] ?? $variation->price,
+                                'override_price' => isset($var['override_price']) ? filter_var($var['override_price'], FILTER_VALIDATE_BOOLEAN) : $variation->override_price,
+                                'is_default' => isset($var['is_default']) ? filter_var($var['is_default'], FILTER_VALIDATE_BOOLEAN) : $variation->is_default,
+                                'sort_order' => $var['sort_order'] ?? $index,
+                                'status' => $var['status'] ?? $variation->status,
+                            ]);
+                            $keepVariationIds[] = $variation->id;
+                        } else {
+                            // Fallback if ID sent but not found for this product
+                            $variation = $product->variations()->create([
+                                'sku' => $var['sku'] ?? null,
+                                'price' => $var['price'] ?? 0,
+                                'override_price' => filter_var($var['override_price'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                                'is_default' => filter_var($var['is_default'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                                'sort_order' => $var['sort_order'] ?? $index,
+                                'status' => $var['status'] ?? 'active',
+                            ]);
+                            $keepVariationIds[] = $variation->id;
+                        }
+                    } else {
+                        $variation = $product->variations()->create([
+                            'sku' => $var['sku'] ?? null,
+                            'price' => $var['price'] ?? 0,
+                            'override_price' => filter_var($var['override_price'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                            'is_default' => filter_var($var['is_default'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                            'sort_order' => $var['sort_order'] ?? $index,
+                            'status' => $var['status'] ?? 'active',
+                        ]);
+                        $keepVariationIds[] = $variation->id;
+                    }
+
+                    if (isset($var['attribute_values']) && is_array($var['attribute_values'])) {
+                        $attrValIds = collect($var['attribute_values'])->pluck('attribute_value_id')->toArray();
+                        $variation->attributeValues()->sync($attrValIds);
+                    }
+                }
+                // Delete variations NOT in the keep list
+                $product->variations()->whereNotIn('id', $keepVariationIds)->delete();
+            } elseif ($request->type !== 'combination') {
+                $product->variations()->delete();
             }
 
             if ($request->has('suppliers')) {
@@ -711,7 +875,10 @@ class ProductController extends Controller
                 'compatibleProducts', 
                 'bundleProducts',
                 'images',
-                'customerGroupPrices'
+                'customerGroupPrices',
+                'productAttributes.assignedValues.attributeValue',
+                'productAttributes.attribute.values',
+                'variations.attributeValues'
             ]);
 
             return response()->json([
@@ -778,5 +945,138 @@ class ProductController extends Controller
             "message" => "Product status updated successfully",
             "data" => $product
         ]);
+    }
+
+    public function generateVariations(Request $request)
+    {
+        $request->validate([
+            'attributes' => 'required|array',
+            'attributes.*.attribute_id' => 'required',
+            'attributes.*.name' => 'required',
+            'attributes.*.values' => 'required|array',
+            'existing_variations' => 'nullable|array',
+        ]);
+
+        $attributes = $request->input('attributes');
+        $existingVariations = $request->input('existing_variations', []);
+        $arrays = [];
+        $attributeMeta = [];
+
+        foreach ($attributes as $attr) {
+            if (empty($attr['values'])) continue;
+            
+            $values = [];
+            foreach ($attr['values'] as $val) {
+                $values[] = [
+                    'attribute_value_id' => $val['attribute_value_id'],
+                    'value' => $val['value'] ?? ''
+                ];
+            }
+            $arrays[] = $values;
+            $attributeMeta[] = [
+                'id' => $attr['attribute_id'],
+                'name' => $attr['name']
+            ];
+        }
+
+        if (empty($arrays)) {
+            return response()->json(['variations' => []]);
+        }
+
+        $combinations = $this->cartesianProduct($arrays);
+        $variations = [];
+
+        // Collect all attribute value IDs involved in this generation to filter existing variations
+        $allValidValIds = [];
+        foreach ($arrays as $attributeValues) {
+            foreach ($attributeValues as $av) {
+                $allValidValIds[] = (int)$av['attribute_value_id'];
+            }
+        }
+
+        // Track which existing variations have been consumed
+        $consumedExistingIndices = [];
+
+        foreach ($combinations as $combination) {
+            $names = [];
+            $attributeValues = [];
+            $newValIds = [];
+            
+            foreach ($combination as $item) {
+                $names[] = $item['value'];
+                $attributeValues[] = [
+                    'attribute_value_id' => $item['attribute_value_id']
+                ];
+                $newValIds[] = (int)$item['attribute_value_id'];
+            }
+
+            // Preservation Logic
+            $matchedVariation = null;
+            foreach ($existingVariations as $index => $existing) {
+                if (in_array($index, $consumedExistingIndices)) continue;
+
+                // Robust way to get attribute value IDs from existing variation
+                $existingValIds = collect($existing['attribute_values'] ?? [])
+                    ->map(function($av) {
+                        if (is_numeric($av)) return (int)$av;
+                        if (is_array($av)) {
+                             return $av['attribute_value_id'] ?? $av['id'] ?? null;
+                        }
+                        return null;
+                    })
+                    ->filter()
+                    ->map(fn($id) => (int)$id)
+                    // ONLY consider IDs that are part of the attributes used for generation
+                    ->filter(fn($id) => in_array($id, $allValidValIds))
+                    ->toArray();
+
+                if (empty($existingValIds)) continue;
+
+                // Check if existing combination is a subset of the new one
+                // Every attribute value in the existing variation (that is a variation attribute)
+                // MUST be present in the new combination
+                $isMatch = true;
+                foreach ($existingValIds as $valId) {
+                    if (!in_array($valId, $newValIds)) {
+                        $isMatch = false;
+                        break;
+                    }
+                }
+
+                if ($isMatch) {
+                    $matchedVariation = $existing;
+                    $consumedExistingIndices[] = $index;
+                    break;
+                }
+            }
+
+            $variations[] = [
+                'id' => $matchedVariation['id'] ?? null,
+                'name' => implode(', ', $names),
+                'sku' => $matchedVariation['sku'] ?? '',
+                'price' => $matchedVariation['price'] ?? 0,
+                'override_price' => $matchedVariation['override_price'] ?? false,
+                'is_default' => $matchedVariation ? ($matchedVariation['is_default'] ?? false) : empty($variations),
+                'status' => $matchedVariation['status'] ?? 'active',
+                'attribute_values' => $attributeValues
+            ];
+        }
+
+        return response()->json(['variations' => $variations]);
+    }
+
+    private function cartesianProduct($arrays)
+    {
+        $result = [[]];
+        foreach ($arrays as $property => $property_values) {
+            $tmp = [];
+            foreach ($result as $result_item) {
+                foreach ($property_values as $property_value) {
+                    $tmp[] = array_merge($result_item, [$property_value]);
+                }
+            }
+            $result = $tmp;
+        }
+        return $result;
     }
 }

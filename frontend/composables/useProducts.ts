@@ -13,6 +13,8 @@ export interface Product {
     override_rrp_cost?: number;
     override_rrp_status?: boolean;
     rrp_cost?: number;
+    product_attributes?: any[];
+    variations?: any[];
 }
 
 export interface Category {

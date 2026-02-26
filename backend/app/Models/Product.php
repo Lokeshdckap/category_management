@@ -178,6 +178,21 @@ class Product extends Model
         return $this->hasMany(ProductCustomerGroupPrice::class);
     }
 
+    public function productAttributes()
+    {
+        return $this->hasMany(ProductAttribute::class)->orderBy('sort_order');
+    }
+
+    public function variations()
+    {
+        return $this->hasMany(ProductVariation::class)->orderBy('sort_order');
+    }
+
+    public function isCombination()
+    {
+        return $this->type === 'combination';
+    }
+
 
     public function getCalculatedTotalPriceAttribute()
     {

@@ -113,6 +113,24 @@
 
                 <p class="description">{{ currentEntity.short_description || currentEntity.description }}</p>
 
+                <!-- Variation Selection -->
+                <div v-if="currentEntity.type === 'combination' && currentEntity.product_attributes" class="variations-container">
+                    <div v-for="attr in currentEntity.product_attributes" :key="attr.id" class="attribute-group">
+                        <label class="attribute-label">{{ attr.name }}</label>
+                        <div class="attribute-values">
+                            <button 
+                                v-for="val in attr.values" 
+                                :key="val.id"
+                                class="value-btn"
+                                :class="{ active: selectedAttributes[attr.id] === val.id }"
+                                @click="selectedAttributes[attr.id] = val.id"
+                            >
+                                {{ val.value }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="actions">
                     <div class="quantity-selector">
                     <button @click="qty > 1 && qty--">-</button>
@@ -180,11 +198,6 @@ const slug = computed(() => {
 const { products, categories, fetchProducts, fetchCategories, resolveSlug, getProductPrice, loading } = useProducts();
 const { user } = useAuth();
 
-const displayPrice = computed(() => {
-    if (entityType.value !== 'product' || !currentEntity.value) return 0;
-    return getProductPrice(currentEntity.value, user.value?.customer_group_id);
-});
-
 const entityType = ref<'category' | 'product' | null>(null);
 const currentEntity = ref<any>(null);
 const selectedCategoryId = ref<number | null>(null);
@@ -194,6 +207,7 @@ const sortBy = ref<string>('default');
 // PDP specific state
 const mainImage = ref<string>('');
 const qty = ref(1);
+const selectedAttributes = ref<Record<number, number>>({});
 
 const loadData = async () => {
     if (categories.value.length === 0) {
@@ -211,11 +225,49 @@ const loadData = async () => {
             await fetchProducts({ category_id: resolved.data.id });
         } else if (resolved.type === 'product') {
             mainImage.value = resolved.data.image ? `http://localhost:8000${resolved.data.image}` : '';
+            
+            // Auto-select default variation attributes if applicable
+            if (resolved.data.type === 'combination' && resolved.data.variations) {
+                const defaultVar = resolved.data.variations.find((v: any) => v.is_default) || resolved.data.variations[0];
+                if (defaultVar && defaultVar.attribute_value_ids) {
+                    // We need to map which attribute value belongs to which attribute
+                    resolved.data.product_attributes?.forEach((attr: any) => {
+                        const valMatch = attr.values.find((v: any) => defaultVar.attribute_value_ids.includes(v.id));
+                        if (valMatch) {
+                            selectedAttributes.value[attr.id] = valMatch.id;
+                        }
+                    });
+                }
+            }
         }
     } else {
         entityType.value = null;
     }
 };
+
+const selectedVariation = computed(() => {
+    if (entityType.value !== 'product' || !currentEntity.value || currentEntity.value.type !== 'combination') return null;
+    if (!currentEntity.value.variations) return null;
+
+    const selectedValIds = Object.values(selectedAttributes.value);
+    if (selectedValIds.length === 0) return null;
+
+    return currentEntity.value.variations.find((v: any) => {
+        return v.attribute_value_ids.length === selectedValIds.length && 
+               v.attribute_value_ids.every((id: number) => selectedValIds.includes(id));
+    });
+});
+
+const displayPrice = computed(() => {
+    if (entityType.value !== 'product' || !currentEntity.value) return 0;
+    
+    // If variation is selected and has override price
+    if (selectedVariation.value && selectedVariation.value.override_price) {
+        return selectedVariation.value.price;
+    }
+
+    return getProductPrice(currentEntity.value, user.value?.customer_group_id);
+});
 
 onMounted(loadData);
 watch(slug, loadData);
@@ -625,5 +677,53 @@ const filteredProducts = computed(() => {
     gap: 40px;
     padding: 24px;
   }
+}
+
+/* Variations Styles */
+.variations-container {
+  margin-bottom: 32px;
+}
+
+.attribute-group {
+  margin-bottom: 20px;
+}
+
+.attribute-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #1e293b;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+.attribute-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.value-btn {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: #475569;
+}
+
+.value-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.value-btn.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
 }
 </style>

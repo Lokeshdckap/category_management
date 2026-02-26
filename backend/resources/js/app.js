@@ -12,8 +12,10 @@ import 'quasar/dist/quasar.css';
 // Your main app component
 import App from './components/App.vue';
 
-// Configure axios - use relative URL since we're on same domain
-axios.defaults.baseURL = '/api';  // Changed from http://localhost:8000/api
+// Configure axios
+axios.defaults.baseURL = '/api';
+axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+axios.defaults.headers.common['Accept'] = 'application/json';
 
 // Add token from localStorage if exists
 const token = localStorage.getItem('auth_token');
